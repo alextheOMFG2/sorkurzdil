@@ -1,4 +1,4 @@
-import { vector2 } from "./basics";
+import { vector2 } from "./basics.ts";
 
 
 export enum kickType {

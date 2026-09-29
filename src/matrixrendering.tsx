@@ -1,12 +1,11 @@
 import roms, { piece, tileModel } from './roms.ts'
 import { colour3, modular, vector2 } from './basics.ts'
-import { clear } from '@testing-library/user-event/dist/clear';
 import { game, gameManager } from './sorkurzdil.ts';
 import visualFlags from './visualflags.ts';
 import { board, matrix, tile } from './board.ts';
 import { simpleKickType, simplifyKickType } from './rotationsystems.ts';
-import { use } from 'react';
 import { cameraMode } from './config.ts';
+import { use } from 'react';
 
 var imagesCache:{[key:string]:HTMLImageElement} = {};
 var loading:{[key:string]:boolean} = {};

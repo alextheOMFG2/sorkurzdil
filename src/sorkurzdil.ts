@@ -1,7 +1,6 @@
 import roms, { piece } from './roms.ts'
 import { colour3, modular, vector2 } from './basics.ts'
 import { b2btype, cameraMode, Command, gameConfig, garbageGeneration, garbageGeneratorInitiator, garbagePacket, garbageType, levelling, simplescoring, userConfig, wavetype } from './config.ts';
-import { act } from '@testing-library/react';
 import InputManager from './inputmanager.ts'
 import { board, matrix, tile } from './board.ts'
 import MovementManager from './movementmanager.ts';

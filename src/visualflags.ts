@@ -1,5 +1,5 @@
-import { vector2 } from "./basics";
-import { piece } from "./roms";
+import { vector2 } from "./basics.ts";
+import { piece } from "./roms.ts";
 
 
 export type lineclearalert={

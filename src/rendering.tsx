@@ -1,6 +1,5 @@
 import roms, { colourpossibility, piece, SafeColour, tileModel } from './roms.ts'
 import { colour3, formatTime, modular, vector2 } from './basics.ts'
-import { clear } from '@testing-library/user-event/dist/clear';
 import MatrixRendering from './matrixrendering.tsx';
 import visualFlags, { lineclearalert } from './visualflags.ts';
 import { game, gameManager } from './sorkurzdil.ts';
@@ -9,7 +8,6 @@ import { scoreDisplay, scoreDisplayType } from './config.ts';
 import particleManager, { curve, rectParticle, textParticle } from './particlemanager.tsx';
 import config from './config.ts'
 import React, { createElement, ReactElement, RefObject, useImperativeHandle, useRef, useState } from 'react';
-import { render } from '@testing-library/react';
 
 var imagesCache:{[key:string]:HTMLImageElement} = {};
 var loading:{[key:string]:boolean} = {};

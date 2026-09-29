@@ -1,5 +1,5 @@
-import { vector2 } from "./basics";
-import { Command, userConfig } from "./config";
+import { vector2 } from "./basics.ts";
+import { Command, userConfig } from "./config.ts";
 
 export default class InputManager{
     heldKeys:{[key:string]:number}={};

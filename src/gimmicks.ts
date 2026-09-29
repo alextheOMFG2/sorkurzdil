@@ -1,7 +1,7 @@
-import { vector2 } from "./basics";
-import { board, tile, tileType } from "./board";
-import object from "./config";
-import { game } from "./sorkurzdil";
+import { vector2 } from "./basics.ts";
+import { board, tile, tileType } from "./board.ts";
+import object from "./config.ts";
+import { game } from "./sorkurzdil.ts";
 
 export class gimmickReport{
     score:number;

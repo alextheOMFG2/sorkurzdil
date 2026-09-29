@@ -1,7 +1,7 @@
-import { vector2 } from "./basics";
-import config, { b2btype, gameConfig, garbageGeneration, garbagePacket, pieceChoices, wavetype } from "./config"
+import { vector2 } from "./basics.ts";
+import config, { b2btype, gameConfig, garbageGeneration, garbagePacket, pieceChoices, wavetype } from "./config.ts"
 import roms from "./roms";
-import { kickSystems } from "./rotationsystems";
+import { kickSystems } from "./rotationsystems.ts";
 
 const prefabs:{[key:string]:gameConfig} = {
     default:new gameConfig()

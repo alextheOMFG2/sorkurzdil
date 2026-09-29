@@ -1,5 +1,5 @@
-import { colour3, lerp, vector2 } from "./basics";
-import { colourpossibility, SafeColour } from "./roms";
+import { colour3, lerp, vector2 } from "./basics.ts";
+import { colourpossibility, SafeColour } from "./roms.ts";
 
 export class curve<T>{
     start:T;

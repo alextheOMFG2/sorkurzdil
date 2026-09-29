@@ -1,4 +1,3 @@
-import { clear } from '@testing-library/user-event/dist/clear';
 import { colour3, vector2 } from './basics.ts'
 import krux from './krexkd.png'
 import { kickType, simpleKickType, SpinType, symmetry } from './rotationsystems.ts';
