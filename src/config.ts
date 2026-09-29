@@ -1,9 +1,11 @@
-import roms, { piece, tileModel } from './roms.ts'
+import { bagprefabs, piece, tileModel } from './roms.ts'
 import { formatTime, formatTimeSmall, modular, Randomiser, vector2 } from './basics.ts'
 import { board, tile, tileType } from './board.ts';
 import rs, { kickSystems, kickType, simplifyKickType } from './rotationsystems.ts';
 import { game } from './sorkurzdil.ts';
 import { ExplodeGrenades, gimmick, MarkBombClears } from './gimmicks.ts';
+import { tileModels } from './roms.ts';
+import { BaseGarbageGenerator, garbageGeneratorInitiator, garbageType, LinesGenerator } from './garbagegeneration.ts';
 
 function HashBag(bagprefab:piece[]){
     var o = "";
@@ -66,7 +68,7 @@ export const pieceChoices:Readonly<{[key:string]:((bagprefab:piece[])=>pieceGene
                 for(const _piece of bagprefab)
                     workingbag.push(_piece);
                 let bomb = Math.floor(randomiser.next() * workingbag.length);
-                workingbag[bomb] = workingbag[bomb].withGimmick(tileType.grenade).withModel(roms.tileModels.grenade)
+                workingbag[bomb] = workingbag[bomb].withGimmick(tileType.grenade).withModel(tileModels.grenade)
                 while(workingbag.length > 0){
                     const i = Math.floor(randomiser.next() * workingbag.length);
                     yield workingbag.splice(i,1)[0]
@@ -91,251 +93,6 @@ export const pieceChoices:Readonly<{[key:string]:((bagprefab:piece[])=>pieceGene
     },
 })
 
-export type garbageType = ()=>tile;
-export type garbageGeneratorInitiator = (_garbageType:garbageType,width: number) => Generator<tile[], never, unknown>
-
-export const garbageGeneration = Object.freeze({
-    "onehole":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    const hole = Math.floor(randomiser.next()*width)
-                    for(let i=0; i<width; i++)
-                        if(i === hole)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    yield line
-                }
-            }
-        }
-    },
-    "messy":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                if(width <= 1)
-                    throw new Error("crazy edge case you get an achievement for finding this")
-
-                var repeat = Math.floor(randomiser.next()*width)
-                while(true){
-                    var line:tile[] = []
-                    var hole = Math.floor(randomiser.next()*(width - 1))
-                    if(hole === repeat)
-                        hole ++
-                    for(let i=0; i<width; i++)
-                        if(i === hole)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    repeat = hole
-                    yield line
-                }
-            }
-        }
-    },
-    "straight":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                const z = randomiser.next();
-                const hole = Math.floor(z*width)
-                while(true){
-                    var line:tile[] = []
-                    for(let i=0; i<width; i++)
-                        if(i === hole)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    yield line
-                }
-            }
-        }
-    },
-    "checker":function(){
-        return function(_seed?:number){
-            var parity = 0;
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    for(let i=0; i<width; i++)
-                        if(i % 2 === parity % 2)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    parity++;
-                    yield line
-                }
-            }
-        }
-    },
-    "random":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    for(let i=0; i<width; i++)
-                        if(randomiser.next() < 0.5)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    yield line
-                }
-            }
-        }
-    },
-    "damnation":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    var choose = randomiser.next() < 0.5 ? 6 : 7;
-                    var left = width;
-                    for(let i=0; i<width; i++)
-                        if(randomiser.next() < choose / left){
-                            choose--;
-                            left--;
-                            line[i] = new tile();
-                        }
-                        else{
-                            left--;
-                            line[i] = _garbageType();
-                        }
-                    yield line
-                }
-            }
-        }
-    },
-    "multihole":function(holes:number){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    var choose = holes;
-                    var left = width;
-                    for(let i=0; i<width; i++)
-                        if(randomiser.next() < choose / left){
-                            choose--;
-                            left--;
-                            line[i] = new tile();
-                        }
-                        else{
-                            left--;
-                            line[i] = _garbageType();
-                        }
-                    yield line
-                }
-            }
-        }
-    },
-    "oneblock":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    const block = Math.floor(randomiser.next()*width)
-                    for(let i=0; i<width; i++)
-                        if(i !== block)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    yield line
-                }
-            }
-        }
-    },
-    "secretgrade":function(){
-        return function(_seed?:number){
-            var parity = 0;
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    const diagonish = parity % (width - 1)
-                    const pong = (Math.floor(parity / (width-1)) % 2 === 0 ? diagonish : (width - 1 - diagonish))
-                    for(let i=0; i<width; i++)
-                        if(i === pong)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    parity++;
-                    yield line
-                }
-            }
-        }
-    },
-    "diagonal":function(){
-        return function(_seed?:number){
-            var parity = 0;
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    const diagonish = parity % (width - 1)
-                    const pong = (Math.floor(parity / (width-1)) % 2 === 0 ? diagonish : (width - 1 - diagonish))
-                    for(let i=0; i<width; i++)
-                        if(i !== pong)
-                            line[i] = new tile();
-                        else
-                            line[i] = _garbageType();
-                    parity++;
-                    yield line
-                }
-            }
-        }
-    },
-    "bomb":function(){
-        return function(seed?:number){
-            seed = seed || new Date().getTime();
-            let randomiser = new Randomiser(seed);
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                const z = randomiser.next();
-                const hole = Math.floor(z*width)
-                while(true){
-                    var line:tile[] = []
-                    for(let i=0; i<width; i++)
-                        if(i === hole){
-                            line[i] = new tile(roms.tileModels.bomb);
-                            line[i].countstoclear = false;
-                            line[i].tileType = tileType.bomb;
-                        }
-                        else{
-                            line[i] = _garbageType();
-                            line[i].countstoclear = false;
-                        }
-                    yield line
-                }
-            }
-        }
-    },
-    "solid":function(){
-        return function(seed?:number){
-            return function*(_garbageType:garbageType=tile.garbage,width:number){
-                while(true){
-                    var line:tile[] = []
-                    for(let i=0; i<width; i++){
-                        line[i] = _garbageType();
-                        line[i].countstoclear = false;
-                        line[i].tileType = tileType.solid;
-                    }
-                    yield line
-                }
-            }
-        }
-    },
-})
-
 export enum levelling{
     none,
     nes,
@@ -347,7 +104,7 @@ export enum b2btype{
     none,
     lenient,
     b2b,
-    guideline,
+    tspin,
     tech,
 }
 
@@ -362,7 +119,7 @@ export enum spinDetection{
 
 export type simplescoring = (_game:game,piecejustplaced:piece,lines:number,spin:boolean,mini:boolean,immobile:boolean,pc:boolean)=>number;
 
-const simpleScoringSystems = Object.freeze({
+export const simpleScoringSystems = Object.freeze({
     "guideline":function(_game:game,_:piece,lines:number,spin:boolean,mini:boolean,__:boolean,pc:boolean){
         var score = 0
 
@@ -399,7 +156,7 @@ const simpleScoringSystems = Object.freeze({
 
 export type attackingSystem = (_game:game,piecejustplaced:piece,lines:number,spin:boolean,mini:boolean,immobile:boolean,pc:boolean)=>number;
 
-const attackingSystems = Object.freeze({
+export const attackingSystems = Object.freeze({
     "guideline":function(_game:game,_:piece,lines:number,spin:boolean,mini:boolean,__:boolean,pc:boolean){
         var attack = 0
 
@@ -468,7 +225,7 @@ export type scoreDisplay = {
 }
 export type scoreDisplayType = (_game:game)=>scoreDisplay;
 
-const scoreDisplays = Object.freeze({
+export const scoreDisplays = Object.freeze({
     "masterlevelling":function(_game:game){
         const firstlevelup = _game.gameConfig.startlevel + 1;
         const levelupprogress = (_game.levels < firstlevelup) ? (_game.lines / firstlevelup / 10) : ((_game.lines / 10) % 1);
@@ -539,7 +296,7 @@ export type mission = {
 }
 export type missionType = (_game:game)=>mission;
 
-const missions = Object.freeze({
+export const missions = Object.freeze({
     "attack":function(goal:number){
         return function(_game:game){
             return {
@@ -560,6 +317,16 @@ const missions = Object.freeze({
             }
         }
     },
+    "dig":function(goal:number){
+        return function(_game:game){
+            return {
+                name:"dig",
+                text:Math.max(0,goal - _game.dig).toString(),
+                progress:_game.dig / goal,
+                win:_game.dig >= goal,
+            }
+        }
+    },
 })
 
 export type score = {
@@ -570,7 +337,7 @@ export type score = {
 }
 export type scorer = (_game:game)=>score;
 
-const scorers = Object.freeze({
+export const scorers = Object.freeze({
     "speed":function(_game:game){
         return{
             name:"time",
@@ -623,7 +390,7 @@ const scorers = Object.freeze({
 
 export type constraint = (_game:game)=>boolean; // if it returns false you lose
 
-const constraints = Object.freeze({
+export const constraints = Object.freeze({
     "b2bhealth":function(_game:game){
         return !_game.flags.negativeb2bmeter;
     },
@@ -640,7 +407,7 @@ export class gameConfig{
     height=20;
 
     kickSystem=kickSystems.SRS;
-    pieceChoice=pieceChoices.bags(roms.bagprefabs.tetrominos);
+    pieceChoice=pieceChoices.bags(bagprefabs.tetrominos);
     queuesize = 5;
     holdsize = 1;
     holds = 1;
@@ -715,10 +482,11 @@ export class gameConfig{
     clearthres = 0; //maxmimum amount of garbage on board and in queue for wave to spawn, if wavetype is onclear
     
     cheeselayer = 0;
+    cheeselimit:number|undefined; //maxmimum layers of cheese to give 
 
-    garbageChoice:(()=>garbageGeneratorInitiator)|undefined;
-    woundsChoice:(()=>garbageGeneratorInitiator)|undefined;
-    cheeseChoice:(()=>garbageGeneratorInitiator)|undefined;
+    garbageChoice:BaseGarbageGenerator|undefined;
+    woundsChoice:LinesGenerator|undefined;
+    cheeseChoice:LinesGenerator|undefined;
     garbageType:garbageType=tile.garbage;
     woundsType:garbageType=tile.garbage;
     cheeseType:garbageType=tile.garbage;
@@ -733,6 +501,7 @@ export class gameConfig{
     garbagehesitation = 0;
     garbagepacketare = 0;
     garbageout = true; // whether you die when garbage causes your thing to be blocked //does this even make sense as a thing that can be turned off, whil also being distinct from the infinite height thing //unimplemented
+    clutching = true; // clearing a line makes you unable to die when the next piece spawns
 
     comboBlocking = true;
     attackCancelling = true; //unimplemented
@@ -740,7 +509,12 @@ export class gameConfig{
     //functions to pass the board through before and after locks
     prelock:gimmick[] = [MarkBombClears];
     postlock:gimmick[] = [ExplodeGrenades];
-    //maybe clears as well but i dont know if it makes sense
+    postclear:gimmick[] = []; //only fires when theres a clear //unimplemented
+    //would preclear make sense i guess it only fires when theer sa clear as wel
+
+    postframe:gimmick[] = [];
+    earlylock:gimmick[] = []; //executes every time a piece moves and also you can only use this to lock otherwise it doesnt really make sense i think
+    earlylockare = 750;
 
     allowHardDrop = true;
     allow180 = true;
@@ -927,13 +701,3 @@ export class userConfig{
 
     sdfBeforeDas = true;
 }
-
-const object = {
-    simpleScoringSystems:simpleScoringSystems,
-    scoreDisplays:scoreDisplays,
-    missions:missions,
-    scorers:scorers,
-    constraints:constraints,
-}
-
-export default object;

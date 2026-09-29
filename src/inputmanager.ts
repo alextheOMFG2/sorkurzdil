@@ -7,9 +7,6 @@ export default class InputManager{
     onKeyUp:((command:Command)=>void)[]=[];
     userConfig:userConfig;
 
-    commandBuffer:Command[] = [];
-    bufferinputs = false;
-
     constructor(_userConfig:userConfig){
         this.userConfig = _userConfig;
     }
@@ -29,29 +26,12 @@ export default class InputManager{
         if(!this.heldKeys[command])
             this.heldKeys[command] = new Date().getTime();
 
-        if(!this.bufferinputs)
-            this.DispatchInput(command)
-        else if(!this.commandBuffer.includes(command))
-            this.commandBuffer.push(command)
+        this.DispatchInput(command)
     }
 
     DispatchInput(command:Command){
         for(const subscriber of this.onKeyDown){
             subscriber(command)
-        }
-    }
-
-    unblockdispatchdebounce = false;
-
-    InputUnblock(){
-        this.unblockdispatchdebounce = true
-        this.bufferinputs = false;
-        while(!this.bufferinputs && this.commandBuffer.length > 0){
-            const workingbuffer = this.commandBuffer;
-            this.commandBuffer = [];
-            const command = workingbuffer.splice(0,1)[0]
-            this.DispatchInput(command)
-            this.commandBuffer = workingbuffer
         }
     }
 
@@ -61,9 +41,6 @@ export default class InputManager{
         const command = this.userConfig.codemappings[e.code];
 
         e.preventDefault()
-
-        if(this.commandBuffer.includes(command))
-            this.commandBuffer.splice(this.commandBuffer.indexOf(command),1)
 
         if(!this.heldKeys[command])
             return;

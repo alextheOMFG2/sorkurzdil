@@ -1,12 +1,19 @@
-import { vector2 } from "./basics.ts"
+import { colour3, vector2 } from "./basics.ts"
 import { board, tile, tileType } from "./board.ts";
-import config, { Command, gameConfig, spinDetection, userConfig } from "./config.ts";
+import { Command, gameConfig, simpleScoringSystems, spinDetection, userConfig } from "./config.ts";
 import { gimmickReport } from "./gimmicks.ts";
 import InputManager from "./inputmanager.ts";
-import roms, { piece } from "./roms.ts";
+import { levelsGravities, levelsLockTimes, piece } from "./roms.ts";
 import { SpinType, symmetry } from "./rotationsystems.ts";
 import { game } from "./sorkurzdil.ts";
 import visualFlags from "./visualflags.ts";
+
+export type lockReport={
+    spin:boolean,
+    mini:boolean,
+    immobile:boolean,
+    gimmickReport:gimmickReport,
+}
 
 export default class MovementManager{
     game:game;
@@ -22,7 +29,7 @@ export default class MovementManager{
 
     lockharddropdebounce = 0;
 
-    onLock:((spin:boolean,mini:boolean,immobile:boolean,_gimmickReport:gimmickReport)=>void)[]=[];
+    onLock:((lockReport:lockReport)=>void)[]=[];
 
     constructor(_game:game,board:board){
         this.game = _game;
@@ -50,22 +57,22 @@ export default class MovementManager{
                     break;
                 case Command.SonicDrop:
                     var drop = this.SonicDrop();
-                    if(this.game.gameConfig.simplescoring === config.simpleScoringSystems.guideline)
+                    if(this.game.gameConfig.simplescoring === simpleScoringSystems.guideline)
                         this.game.score += Math.floor(-drop * 1.5);
                     break;
                 case Command.AirLock:
                     if(!this.game.gameConfig.allowAirLock) break
                     if(this.gravityelapsed > this.game.gameConfig.gravity / 2)
                         this.AttemptShift(vector2.down);
-                    this.LockSequence();
+                    this.Lock();
                     break;
                 case Command.HardDrop:
                     if(!this.game.gameConfig.allowHardDrop) break
                     if(this.lockharddropdebounce < this.game.userConfig.lockharddropdebounce) break
                     var drop = this.SonicDrop();
-                    if(this.game.gameConfig.simplescoring === config.simpleScoringSystems.guideline)
+                    if(this.game.gameConfig.simplescoring === simpleScoringSystems.guideline)
                         this.game.score += -drop * 2;
-                    this.LockSequence();
+                    this.Lock();
                     break;
                 case Command.RotNull:
                     if(!this.game.gameConfig.allowRotation)break;
@@ -197,7 +204,7 @@ export default class MovementManager{
     }
 
     Move(shift:vector2){
-        let success = this.AttemptShift(shift);
+        const success = this.AttemptShift(shift);
         if (success){
             this.LockCancel();
 
@@ -205,11 +212,13 @@ export default class MovementManager{
             this.minieligible = false;
 
             this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(shift);
+
+            this.EarlyLock();
         }
         return success
     }
 
-    SonicDrop(){
+    /*SonicDrop(){
         if(!this.board.activepiece)
             return 0
 
@@ -218,6 +227,26 @@ export default class MovementManager{
         
         this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(dropHeight);
         return dropHeight.y
+    }*/ //waa goodbye elegant sonic drop i need to add gimmicks
+
+    SonicDrop(){
+        if(!this.board.activepiece)
+            return 0
+
+        var dropHeight = 0
+        while(true){
+            const success = this.AttemptShift(vector2.down)
+            const earlylock = this.EvaluateEarlyLockGimmicks()
+            if(!success) break
+            if(earlylock){
+                this.Lock(true);
+                break
+            }
+            dropHeight += 1
+        }
+        
+        this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(vector2.down.mul(dropHeight));
+        return dropHeight
     }
 
     AttemptHadamard(other:vector2){
@@ -243,6 +272,9 @@ export default class MovementManager{
 
     //still 90 degree clockwise turns
     Rotate(turns:number){
+        if(!this.board.activepiece)
+            return
+
         let success = this.AttemptRotate(turns);
 
         if(success){
@@ -329,6 +361,8 @@ export default class MovementManager{
         }
     }
 
+    clutcheligible = false;
+
     /**doesnt actually choose the piece to be spawned */
     SpawnPiece(){
         if(!this.board.activepiece)
@@ -343,15 +377,30 @@ export default class MovementManager{
             this.board.activeposition = this.board.activeposition.add(new vector2(0,-topy))
         }
 
-        if(!this.ValidShift(vector2.zero) && this.game.gameConfig.pieceSpawnMargin < 0)
+        var usemargin = this.game.gameConfig.pieceSpawnMargin
+        if(this.game.gameConfig.clutching && this.clutcheligible)
+            usemargin = 0
+
+        if(!this.ValidShift(vector2.zero) && usemargin < 0)
             this.game.gameOver = true;
 
-        if(this.game.gameConfig.pieceSpawnMargin >= 0){
+        if(!this.ValidShift(vector2.zero) && this.game.gameConfig.clutching && this.clutcheligible)
+            this.game.flags.otheralerts.push({
+                time:0,
+                code:"generic",
+                info:{
+                    text:"clutch",
+                    colour:colour3.fromHex("#4b4b00")
+                },
+            })
+        this.clutcheligible = false
+
+        if(usemargin >= 0){
             if(this.game.gameConfig.spawnMarginUseLeeway)
-                while(!this.Leeway(this.game.gameConfig.pieceSpawnMargin))
+                while(!this.Leeway(usemargin))
                     this.board.activeposition = this.board.activeposition.add(vector2.up);
             else{
-                const aboveboard = this.board.matrix.GetEffectiveHeight() + this.game.gameConfig.pieceSpawnMargin
+                const aboveboard = this.board.matrix.GetEffectiveHeight() + usemargin
                 this.board.activeposition = new vector2(
                     this.board.activeposition.x,
                     Math.max(this.board.activeposition.y,aboveboard)
@@ -487,7 +536,7 @@ export default class MovementManager{
         this.lockcancelsused++;
     }
 
-    Lock(){
+    PlaceActivePiece(){
         if(!this.board.activepiece)
             return
 
@@ -499,7 +548,9 @@ export default class MovementManager{
         }
     }
 
-    LockSequence(){
+    Lock(earlylock=false){
+        if(!this.board.activepiece)
+            return
         if(!this.Noncolliding(vector2.zero) || !this.InBounds(vector2.zero))
             return
         if(this.game.gameConfig.verticallineclears && !this.StrictlyInBounds(vector2.zero))
@@ -512,15 +563,36 @@ export default class MovementManager{
             const result = i(this.board,this.game)
             runninggimmick = runninggimmick.add(result)
         }
-        this.Lock()
+        this.PlaceActivePiece()
         for(const i of this.game.gameConfig.postlock){
             const result = i(this.board,this.game)
             runninggimmick = runninggimmick.add(result)
         }
+
+        runninggimmick.lock ||= earlylock;
         
         for(const call of this.onLock){
-            call(spin,mini,immobile,runninggimmick)
+            call({
+                spin:spin,
+                mini:mini,
+                immobile:immobile,
+                gimmickReport:runninggimmick
+            })
         }
+    }
+
+    EvaluateEarlyLockGimmicks(){
+        for(const i of this.game.gameConfig.earlylock){
+            const result = i(this.board,this.game)
+            if(result.lock)
+                return true
+        }
+        return false
+    }
+
+    EarlyLock(){
+        if(this.EvaluateEarlyLockGimmicks())
+            this.Lock(true)
     }
 
     //every frame kind of thing
@@ -529,18 +601,22 @@ export default class MovementManager{
         let exhaust = 0;
 
         if(this.game.gameConfig.levelgravity)
-            this.game.gameConfig.gravity = roms.levelsGravities[Math.min(roms.levelsGravities.length-1,this.game.levels)]
+            this.game.gameConfig.gravity = levelsGravities[Math.min(levelsGravities.length-1,this.game.levels)]
         
         if(this.game.gameConfig.levelLocktimes)
-            this.game.gameConfig.lockTime = roms.levelsLockTimes[Math.min(roms.levelsLockTimes.length-1,this.game.levels)]
+            this.game.gameConfig.lockTime = levelsLockTimes[Math.min(levelsLockTimes.length-1,this.game.levels)]
         
         while (this.gravityelapsed > this.game.gameConfig.gravity){
             this.gravityelapsed -= this.game.gameConfig.gravity;
             const success = this.AttemptShift(vector2.down);
             if(!success)
                 break;
+            if(this.EvaluateEarlyLockGimmicks()){
+                this.Lock(true)
+                break
+            }
 
-            if(this.game.gameConfig.simplescoring === config.simpleScoringSystems.guideline && this.game.inputManager.Held(Command.SoftDrop))
+            if(this.game.gameConfig.simplescoring === simpleScoringSystems.guideline && this.game.inputManager.Held(Command.SoftDrop))
                 this.game.score++;
             
             exhaust++;
@@ -561,7 +637,7 @@ export default class MovementManager{
             lockTime = this.game.gameConfig.lockTime
 
         if(this.lockelapsed > lockTime){
-            this.LockSequence();
+            this.Lock();
             this.lockharddropdebounce = 0;
         }
     }

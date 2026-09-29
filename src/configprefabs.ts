@@ -1,7 +1,10 @@
 import { vector2 } from "./basics.ts";
-import config, { b2btype, gameConfig, garbageGeneration, garbagePacket, pieceChoices, wavetype } from "./config.ts"
-import roms from "./roms";
+import { tile } from "./board.ts";
+import { b2btype, gameConfig, garbagePacket, pieceChoices, wavetype } from "./config.ts"
+import { bagprefabs } from "./roms.ts";
 import { kickSystems } from "./rotationsystems.ts";
+import { constraints, missions, scorers } from "./config.ts";
+import { Bombs, Damnation, LinesGenerator } from "./garbagegeneration.ts";
 
 const prefabs:{[key:string]:gameConfig} = {
     default:new gameConfig()
@@ -22,7 +25,7 @@ const prefabs:{[key:string]:gameConfig} = {
     _gameConfig.areincreaseresolution = 2*1000/60;
     _gameConfig.lineclearare = 20*1000/60
 
-    _gameConfig.pieceChoice = pieceChoices.random(roms.bagprefabs.arcade);
+    _gameConfig.pieceChoice = pieceChoices.random(bagprefabs.arcade);
     _gameConfig.kickSystem = kickSystems.righthanded;
     _gameConfig.queuesize = 1;
     _gameConfig.holdsize = 0;
@@ -36,10 +39,20 @@ const prefabs:{[key:string]:gameConfig} = {
 
 {
     let _gameConfig = new gameConfig()
-    _gameConfig.mission = config.missions.lines(40);
-    _gameConfig.scorer = config.scorers.speed;
+    _gameConfig.mission = missions.lines(40);
+    _gameConfig.scorer = scorers.speed;
 
-    prefabs["40l"] = _gameConfig
+    prefabs["sprint40"] = _gameConfig
+}
+
+{
+    let _gameConfig = new gameConfig()
+    _gameConfig.mission = missions.dig(40)
+    _gameConfig.cheeselayer = 10
+    _gameConfig.cheeselimit = 40
+    _gameConfig.scorer = scorers.speed;
+
+    prefabs["dig40"] = _gameConfig
 }
 
 {
@@ -54,7 +67,7 @@ const prefabs:{[key:string]:gameConfig} = {
 {
     let _gameConfig = new gameConfig()
     _gameConfig.allowFlips = true;
-    _gameConfig.pieceChoice = pieceChoices.bags(roms.bagprefabs.freeTetrominos);
+    _gameConfig.pieceChoice = pieceChoices.bags(bagprefabs.freeTetrominos);
 
     prefabs["freetennis"] = _gameConfig
 }
@@ -62,7 +75,7 @@ const prefabs:{[key:string]:gameConfig} = {
 {
     let _gameConfig = new gameConfig()
     _gameConfig.allowRotation = false;
-    _gameConfig.pieceChoice = pieceChoices.bags(roms.bagprefabs.fixedTetrominos);
+    _gameConfig.pieceChoice = pieceChoices.bags(bagprefabs.fixedTetrominos);
 
     prefabs["fixedtennis"] = _gameConfig
 }
@@ -89,7 +102,7 @@ const prefabs:{[key:string]:gameConfig} = {
 
     _gameConfig.warlockwounds = 20
     _gameConfig.keeplastlineclear = true;
-    _gameConfig.woundsChoice = garbageGeneration.damnation()
+    _gameConfig.woundsChoice = new LinesGenerator(new Damnation())
 
     _gameConfig.initialisegarbage = [
       new garbagePacket(1),
@@ -119,7 +132,7 @@ const prefabs:{[key:string]:gameConfig} = {
 {
     let _gameConfig = new gameConfig()
 
-    _gameConfig.constraints.push(config.constraints.b2bhealth)
+    _gameConfig.constraints.push(constraints.b2bhealth)
 
     prefabs["tech"] = _gameConfig
 }
@@ -145,9 +158,9 @@ const prefabs:{[key:string]:gameConfig} = {
 {
     let _gameConfig = new gameConfig()
     
-    _gameConfig.mission = config.missions.lines(4*7);
-    _gameConfig.scorer = config.scorers.pc;
-    _gameConfig.constraints.push(config.constraints['4hpc'])
+    _gameConfig.mission = missions.lines(4*7);
+    _gameConfig.scorer = scorers.pc;
+    _gameConfig.constraints.push(constraints['4hpc'])
 
     prefabs["allpc28"] = _gameConfig
 }
@@ -161,7 +174,7 @@ const prefabs:{[key:string]:gameConfig} = {
 
     _gameConfig.wavetype = wavetype.ontimer;
 
-    _gameConfig.scorer = config.scorers.survival
+    _gameConfig.scorer = scorers.survival
 
     _gameConfig.garbageare = 500
     _gameConfig.garbageripen = 500
@@ -173,9 +186,33 @@ const prefabs:{[key:string]:gameConfig} = {
     let _gameConfig = new gameConfig()
 
     _gameConfig.twoplayer = true
-    _gameConfig.mission = config.missions.attack(20)
+    _gameConfig.mission = missions.attack(20)
 
     prefabs["twoplayer"] = _gameConfig
+}
+
+{
+    let _gameConfig = new gameConfig()
+
+    _gameConfig.wave = [
+        new garbagePacket(8),
+        new garbagePacket(8),
+        new garbagePacket(4)
+    ]
+    _gameConfig.waveinterval = 2000
+    _gameConfig.wavetype = wavetype.onexhaust
+    _gameConfig.garbageripen = 16000
+
+    prefabs["attacker"] = _gameConfig
+}
+
+{
+    let _gameConfig = new gameConfig()
+
+    _gameConfig.garbageChoice = new LinesGenerator(new Bombs());
+    _gameConfig.garbageType = tile.hardy
+    
+    prefabs["bombs"] = _gameConfig
 }
 
 export default prefabs

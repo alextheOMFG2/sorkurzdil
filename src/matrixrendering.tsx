@@ -1,4 +1,4 @@
-import roms, { piece, tileModel } from './roms.ts'
+import { CORoffsets, palette, piece, tileModel } from './roms.ts'
 import { colour3, modular, vector2 } from './basics.ts'
 import { game, gameManager } from './sorkurzdil.ts';
 import visualFlags from './visualflags.ts';
@@ -133,7 +133,7 @@ export default class MatrixRendering {
 
 
         for(const rect of _tileModel.rectangles){
-            const colour = rect.evaluateColour({});
+            const colour = rect.evaluateColour();
             this.ctx.fillStyle = colour.toHex();
             this.ctx.globalAlpha = colour.a;
             
@@ -170,7 +170,7 @@ export default class MatrixRendering {
 
     DrawTile(_tile:tile,screenpos:vector2,bypassboardoffset=false){
         if(this.game.gameOver){
-            this.DrawSquare(new tileModel(roms.colour.garbage),screenpos,true,bypassboardoffset);
+            this.DrawSquare(new tileModel(palette.garbage),screenpos,true,bypassboardoffset);
             return
         }
 
@@ -182,19 +182,19 @@ export default class MatrixRendering {
         var _tileModel = _tile.tileModel;
 
         if(this.game.userConfig.boardGreying && _tileModel.grey)
-            _tileModel = _tileModel.lerpq({},roms.colour.garbage,FDecay(age))
+            _tileModel = _tileModel.lerpq(palette.garbage,FDecay(age))
 
         if (_tile.wound){
             const woundedness = _tile.wound / this.game.gameConfig.woundsclearby;
-            _tileModel = new tileModel(roms.colour.wound).lerp({},roms.colour.garbage,1 - woundedness);
+            _tileModel = new tileModel(palette.wound).lerp(palette.garbage,1 - woundedness);
         }
         
         if (age <= 0)
-            _tileModel = _tileModel.lerpq({},roms.colour.shine,-age*2);
+            _tileModel = _tileModel.lerpq(palette.shine,-age*2);
 
         if (_tile.death){
             const deadFor = Date.now() - _tile.death;
-            _tileModel = _tileModel.withOpacity({},1 - Math.min(1,deadFor / (this.game.gameConfig.lineclearare + this.game.gameConfig.linecleartime)));
+            _tileModel = _tileModel.withOpacity(1 - Math.min(1,deadFor / (this.game.gameConfig.lineclearare + this.game.gameConfig.linecleartime)));
         }
 
         this.DrawSquare(_tileModel,screenpos,true,bypassboardoffset);
@@ -204,7 +204,7 @@ export default class MatrixRendering {
         const _drawnMatrix = this.drawnMatrix();
 
         this.ctx.globalAlpha = 1
-        this.ctx.fillStyle = roms.colour.board.toHex();
+        this.ctx.fillStyle = palette.board.toHex();
         this.FillRect(_drawnMatrix.flip().div(2),_drawnMatrix)
     }
 
@@ -240,10 +240,10 @@ export default class MatrixRendering {
 
         if(!showCOR||!this.game.gameConfig.allowRotation)return;
 
-        const offset = flipy(this.FSTL(roms.CORoffsets[simplifyKickType(piece.kickType)].rotate(piece.orientiation),tilesize));
+        const offset = flipy(this.FSTL(CORoffsets[simplifyKickType(piece.kickType)].rotate(piece.orientiation),tilesize));
         let CORpos = screenpos.add(offset)
         this.ctx.globalAlpha *= this.game.userConfig.COROpacity
-        this.ctx.fillStyle = roms.colour.background.toHex();
+        this.ctx.fillStyle = palette.background.toHex();
         this.FillRect(CORpos.sub(this.CORsize.div(2)),this.CORsize,zoom,bypassboardoffset)
     }
 
@@ -273,7 +273,7 @@ export default class MatrixRendering {
             const queuePiece = this.gameManager.queue[i];
             var useModel = queuePiece.tileModel;
             if(this.game.gameOver)
-            useModel = new tileModel(roms.colour.garbage);
+            useModel = new tileModel(palette.garbage);
 
             this.DrawPieceCompensate(queuePiece,
             topright.add(this.FSTL(new vector2(3 + i * 4.5,1))),
@@ -291,7 +291,7 @@ export default class MatrixRendering {
             const queuePiece = this.gameManager.hold[i];
             var useModel = queuePiece.tileModel;
             if(this.gameManager.holdsused >= this.game.gameConfig.holds || this.game.gameOver)
-            useModel = new tileModel(roms.colour.garbage);
+            useModel = new tileModel(palette.garbage);
             
             this.DrawPieceCompensate(queuePiece,
             topleft.add(this.FSTL(new vector2(-3 - i * 4.5,1))),
@@ -303,7 +303,7 @@ export default class MatrixRendering {
     DrawGhost(){
         if(!this.board.activepiece) return;
         let landpos =this.board.activeposition.add(this.gameManager.movementManager.DropHeight());
-        let ghostModel = this.board.activepiece.tileModel.withOpacity({},this.game.userConfig.ghostOpacity);
+        let ghostModel = this.board.activepiece.tileModel.withOpacity(this.game.userConfig.ghostOpacity);
         this.DrawPiece(this.board.activepiece,
             this.CoordsToScreenPos(landpos),
             ghostModel,
@@ -319,12 +319,12 @@ export default class MatrixRendering {
         const usepos = this.ActivePieceDrawnPosition();
 
         let pieceModel = this.board.activepiece.tileModel;
-        pieceModel = pieceModel.colourOperation({},colour3.saturate,0.4);
+        pieceModel = pieceModel.colourOperation(colour3.saturate,0.4);
 
         let lockTime = this.game.gameConfig.gravity
         if(this.game.gameConfig.useLockTime)
             lockTime = this.game.gameConfig.lockTime
-        pieceModel = pieceModel.lerp({},roms.colour.board,this.gameManager.movementManager.lockelapsed/lockTime * 0.8);
+        pieceModel = pieceModel.lerp(palette.board,this.gameManager.movementManager.lockelapsed/lockTime * 0.8);
 
         let screenpos = this.CoordsToScreenPos(usepos)
         this.DrawPiece(this.board.activepiece,
@@ -344,9 +344,9 @@ export default class MatrixRendering {
         const _drawnMatrix = this.drawnMatrix();
         
         if(this.game.health >16)
-            this.ctx.fillStyle = roms.colour.b2b2b.toHex();
+            this.ctx.fillStyle = palette.b2b2b.toHex();
         else
-            this.ctx.fillStyle = roms.colour.b2b.toHex();
+            this.ctx.fillStyle = palette.b2b.toHex();
 
         const healthbar  = this.visualHealth / 16;
 
@@ -390,9 +390,9 @@ export default class MatrixRendering {
                 this.ctx.globalAlpha = 1
             const ripenT = this.game.gameConfig.garbageripen > 0 ? (packet.ripen / this.game.gameConfig.garbageripen) : 1;
             
-            this.ctx.fillStyle = roms.colour.attackunentered.toHex();
+            this.ctx.fillStyle = palette.attackunentered.toHex();
             if (enterT >= 1 && ripenT >= 1)
-                this.ctx.fillStyle = roms.colour.attack1.flash(roms.colour.attack2,33/1000).toHex();
+                this.ctx.fillStyle = palette.attack1.flash(palette.attack2,33/1000).toHex();
 
             var boxheight = packet.maxlines * this.boardtilesize.y / this.matrixzoom - this.garbagemargin
             if(packet.used){
@@ -405,7 +405,7 @@ export default class MatrixRendering {
                 }
 
                 boxheight *= 1 - lingerT
-                this.ctx.fillStyle = roms.colour.attackused.toHex();
+                this.ctx.fillStyle = palette.attackused.toHex();
             }
 
             this.FillRect(
@@ -417,7 +417,7 @@ export default class MatrixRendering {
             )
 
             if(!packet.used && enterT >= 1 && ripenT < 1){
-                this.ctx.fillStyle = roms.colour.attackunripe.toHex();
+                this.ctx.fillStyle = palette.attackunripe.toHex();
                 this.FillRect(
                 new vector2(
                     _drawnMatrix.x / 2,

@@ -1,12 +1,12 @@
 import { vector2 } from "./basics.ts";
 import { board, tile, tileType } from "./board.ts";
-import object from "./config.ts";
 import { game } from "./sorkurzdil.ts";
 
 export class gimmickReport{
     score:number;
     lines:number;
     attack:number;
+    lock=false;
     constructor(score?:number,lines?:number,attack?:number){
         this.score = (score===undefined)?0:score
         this.lines = (lines===undefined)?0:lines
@@ -15,11 +15,13 @@ export class gimmickReport{
 
     copy(){
         const robot = new gimmickReport(this.score,this.lines,this.attack)
+        robot.lock = this.lock
         return robot;
     }
 
     add(other:gimmickReport){
         const robot = new gimmickReport(this.score + other.score,this.lines + other.lines,this.attack + other.attack)
+        robot.lock = this.lock || other.lock
         return robot;
     }
 }
@@ -88,4 +90,21 @@ export function ExplodeGrenades(_board:board,_game:game):gimmickReport{
         ExplodeTile(_gimmickReport,_board,_game,i)
     }
     return _gimmickReport
+}
+
+export function AdhereToGlue(_board:board,_game:game):gimmickReport{
+    if(!_board.activepiece) return new gimmickReport();
+
+    const locked = new gimmickReport();
+    locked.lock = true
+
+    for(const offset of _board.activepiece.tiles){
+        const i = offset.add(_board.activeposition)
+        for(const j of vector2.orthogonal){
+            const _tile = _board.matrix.GetTile(j.add(i))
+            if(!_tile)continue
+            if(_tile.tileType == tileType.glue) return locked
+        }
+    }
+    return new gimmickReport()
 }

@@ -1,13 +1,13 @@
-import roms, { colourpossibility, piece, SafeColour, tileModel } from './roms.ts'
+import { palette, colourpossibility, compensations, piece, SafeColour, tileModel } from './roms.ts'
 import { colour3, formatTime, modular, vector2 } from './basics.ts'
 import MatrixRendering from './matrixrendering.tsx';
 import visualFlags, { lineclearalert } from './visualflags.ts';
 import { game, gameManager } from './sorkurzdil.ts';
 import { simplifyKickType } from './rotationsystems.ts';
-import { scoreDisplay, scoreDisplayType } from './config.ts';
+import { scoreDisplay, scoreDisplays, scoreDisplayType } from './config.ts';
 import particleManager, { curve, rectParticle, textParticle } from './particlemanager.tsx';
-import config from './config.ts'
 import React, { createElement, ReactElement, RefObject, useImperativeHandle, useRef, useState } from 'react';
+import { clearNames } from './roms.ts';
 
 var imagesCache:{[key:string]:HTMLImageElement} = {};
 var loading:{[key:string]:boolean} = {};
@@ -89,7 +89,7 @@ export class rendering {
     }
 
     DrawPieceCompensate(piece:piece,screenpos:vector2,_tileModel:tileModel,tilesize=this.tilesize){
-        const compensation = roms.compensations[simplifyKickType(piece.kickType)].flip();
+        const compensation = compensations[simplifyKickType(piece.kickType)].flip();
         this.matrixRenderer.ctx = this.ctx;
         this.matrixRenderer.DrawPiece(piece,screenpos.add(flipy(this.FSTL(compensation))),_tileModel,false,false,false,tilesize);
     }
@@ -103,7 +103,7 @@ export class rendering {
             const queuePiece = this.gameManager.queue[i];
             var useModel = queuePiece.tileModel;
             if(this.game.gameOver)
-            useModel = new tileModel(roms.colour.garbage);
+            useModel = new tileModel(palette.garbage);
 
             this.DrawPieceCompensate(queuePiece,
                 topright.add(this.FSTL(new vector2(3 + i * 4.5,1))),
@@ -121,7 +121,7 @@ export class rendering {
             const queuePiece = this.gameManager.hold[i];
             var useModel = queuePiece.tileModel;
             if((this.gameManager.holdsused >= this.game.gameConfig.holds && !this.game.gameConfig.infinitehold) || this.game.gameOver)
-            useModel = new tileModel(roms.colour.garbage);
+            useModel = new tileModel(palette.garbage);
             
             this.DrawPieceCompensate(queuePiece,
             topleft.add(this.FSTL(new vector2(-3 - i * 4.5,1))),
@@ -131,7 +131,7 @@ export class rendering {
     }
 
     NameLineClear(piecejustplaced:piece,lines:number,spin:boolean,mini:boolean,immobile:boolean){
-        const clearname = roms.clearNames[Math.min(lines,roms.clearNames.length)];
+        const clearname = clearNames[Math.min(lines,clearNames.length)];
         const somspin = spin || immobile || mini;
 
         var colouroverride:string|null = null;
@@ -161,25 +161,25 @@ export class rendering {
 
         if(!somspin){
             if(this.game.gameConfig.warlockwounds > 0)
-                return ["void",roms.colour.black.toHex()]
+                return ["void",palette.black.toHex()]
 
             if(lines === 4){
-                return [clearname,roms.colour.I.toHex()];
+                return [clearname,palette.I.toHex()];
             }
             if(lines === 5){
-                return [clearname,roms.colour.O.toHex()];
+                return [clearname,palette.O.toHex()];
             }
             if(lines > 5 && lines <= 11){
                 return [clearname,colour3.fromHSV(Date.now()/ 1000,1,1).toHex()];
             }
-            return [clearname,colouroverride||roms.colour.dark.toHex()];
+            return [clearname,colouroverride||palette.dark.toHex()];
         }
 
         if(lines > 1)
             return [(((mini && !spin) ? "mini " : "")
                 + piecejustplaced.name
                 + ((spin || mini) ? " spin " : " ")
-                + roms.clearNames[Math.min(lines,roms.clearNames.length)]
+                + clearNames[Math.min(lines,clearNames.length)]
                 + ((immobile && !spin && !mini) ? " immobile" : "")), 
                 colouroverride||piecejustplaced.tileModel.firstcolour.toHex()];
 
@@ -187,16 +187,16 @@ export class rendering {
             return [(((mini && !spin) ? "mini " : "")
                 + piecejustplaced.name
                 + ((spin || mini) ? " spin " : " ")
-                + roms.clearNames[Math.min(lines,roms.clearNames.length)]
+                + clearNames[Math.min(lines,clearNames.length)]
                 + ((immobile && !spin && !mini) ? " immobile" : "")), 
-                colouroverride||roms.colour.light.toHex()];
+                colouroverride||palette.light.toHex()];
 
         return [(((mini && !spin) ? "mini " : "")
             + piecejustplaced.name
             + ((spin || mini) ? " spin " : " ")
-            + roms.clearNames[Math.min(lines,roms.clearNames.length)]
+            + clearNames[Math.min(lines,clearNames.length)]
             + ((immobile && !spin && !mini) ? " immobile" : "")), 
-            colouroverride||roms.colour.light.toHex()];
+            colouroverride||palette.light.toHex()];
     }
 
     lineclearalertexpiretime = 3000
@@ -264,9 +264,9 @@ export class rendering {
             this.ctx.letterSpacing = ((1 - (t2 - 1)**2) * 8) + "px"
             this.ctx.textAlign = "center"; 
             if(Date.now() % 128 < 64)
-                this.ctx.fillStyle = roms.colour.great1.toHex();
+                this.ctx.fillStyle = palette.great1.toHex();
             else
-                this.ctx.fillStyle = roms.colour.great2.toHex();
+                this.ctx.fillStyle = palette.great2.toHex();
             this.ctx.font = "bold 128px Arial";
             this.ctx.fillText("MEGACMB",0,0);
         }
@@ -337,9 +337,9 @@ export class rendering {
         }
         else if(this.game.b2b >= 256){
             if(Date.now() % 128 < 64)
-                this.ctx.fillStyle = roms.colour.great1.toHex();
+                this.ctx.fillStyle = palette.great1.toHex();
             else
-                this.ctx.fillStyle = roms.colour.great2.toHex();
+                this.ctx.fillStyle = palette.great2.toHex();
             this.ctx.font = (70 + (this.game.b2b**0.5)/2) + "px Arial";
         }
         else if(this.game.b2b >= 50){
@@ -353,10 +353,10 @@ export class rendering {
             this.ctx.font = (48 + this.game.b2b/4) + "px Arial";
         }
         else if(this.game.b2b >= 4){
-            this.ctx.fillStyle = roms.colour.I.toHex();
+            this.ctx.fillStyle = palette.I.toHex();
             this.ctx.font = (32 + this.game.b2b) + "px Arial";
         }else{
-            this.ctx.fillStyle = roms.colour.black.toHex();
+            this.ctx.fillStyle = palette.black.toHex();
             this.ctx.font = "32px Arial";
         }
     }
@@ -445,11 +445,11 @@ export class rendering {
 
                 if(this.game.lines < 4){
                     text = "trivial pc"
-                    colour = roms.colour.light
+                    colour = palette.light
                     great = false
                 }else if(this.game.lines <= 8){
                     text = "opener pc"
-                    colour = roms.colour.great2
+                    colour = palette.great2
                     great = false
                 }
 
@@ -473,7 +473,7 @@ export class rendering {
 
                 const t = age/this.breakalertexpiretime
                 this.ctx.globalAlpha = (1 - t)**2
-                this.ctx.fillStyle = roms.colour.dark.toHex();
+                this.ctx.fillStyle = palette.dark.toHex();
                 let fontsize = (32 + _alert.info * 4 + bignumber + megacomb)
                 this.ctx.font = fontsize + "px Arial";
                 this.ctx.letterSpacing = ((1 - (t - 1)**2) * 256) + "px"
@@ -551,7 +551,7 @@ export class rendering {
 
         const scoring = _scoreDisplay(this.game)
 
-        this.ctx.fillStyle = roms.colour.black.toHex();
+        this.ctx.fillStyle = palette.black.toHex();
         this.ctx.font = "100px Arial";
         this.ctx.textAlign = "center"; 
         this.ctx.fillText(scoring.text,screenpos.x - 150,screenpos.y);
@@ -579,16 +579,16 @@ export class rendering {
         const _drawnMatrix = this.drawnMatrix();
         const leftX = -_drawnMatrix.x / 2, bottomY = _drawnMatrix.y / 2
         
-        this.ctx.fillStyle = roms.colour.black.toHex();
+        this.ctx.fillStyle = palette.black.toHex();
 
         this.DrawScoreDisplay(this.game.gameConfig.scoreDisplayType,new vector2(leftX,0));
         this.DrawDisplay(formatTime(this.game.time),new vector2(leftX,bottomY-8))
         this.DrawDisplay(this.game.score.toString(),new vector2(leftX,bottomY-8-52))
 
-        if(this.game.gameConfig.scoreDisplayType === config.scoreDisplays.default
+        if(this.game.gameConfig.scoreDisplayType === scoreDisplays.default
             &&this.game.gameConfig.mission
             &&this.game.gameConfig.scorer
-        )this.DrawScoreDisplay(config.scoreDisplays.score,new vector2(leftX,256))
+        )this.DrawScoreDisplay(scoreDisplays.score,new vector2(leftX,256))
 
         this.DrawAlerts();
     }

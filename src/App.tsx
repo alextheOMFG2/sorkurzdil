@@ -1,16 +1,17 @@
 import './App.css';
-import roms, { piece } from './roms.ts';
+import { bagprefabs, palette, piece } from './roms.ts';
 import { game, gameManager } from './sorkurzdil.ts'
 import GameRenderer, {rendering} from './rendering.tsx';
 import React, { useRef, useEffect, RefObject, KeyboardEvent, useState, Component, ReactElement } from 'react';
-import { gameConfig, userConfig, Command, garbageGeneration, b2btype, garbagePacket, wavetype, pieceChoices } from './config.ts';
+import { gameConfig, userConfig, Command, b2btype, garbagePacket, wavetype, pieceChoices, missions } from './config.ts';
 import { colour3 } from './basics.ts';
 import InputManager from './inputmanager.ts';
 import configs from './configprefabs.ts'
-import config from './config.ts'
 import { kickSystems } from './rotationsystems.ts';
 import TextDisplay from './debugu.tsx'
 import { tile } from './board.ts';
+import { SpecklesGarbage } from './garbagegeneration.ts';
+import { AdhereToGlue } from './gimmicks.ts';
 
 const FPS = 120;
 
@@ -20,18 +21,12 @@ let _userConfig = new userConfig()
 _gameConfig.kickSystem = kickSystems.techmino;
 _gameConfig.debug = true;
 
-_gameConfig.garbageChoice = garbageGeneration.bomb();
-_gameConfig.garbageType = tile.hardy
-_gameConfig.wave = [
-  new garbagePacket(8),
-  new garbagePacket(4),
-  new garbagePacket(2),
-  new garbagePacket(1),
-]
-_gameConfig.waveinterval = 2000
-_gameConfig.wavetype = wavetype.onexhaust
-_gameConfig.garbageripen = 8000
-_gameConfig.pieceChoice = pieceChoices.bags(roms.bagprefabs.tetrominosPlusGrenade)
+_gameConfig.backfire = 0.9
+_gameConfig.garbageChoice = new SpecklesGarbage(8)
+_gameConfig.garbageType = tile.glue
+_gameConfig.earlylock = [AdhereToGlue]
+
+//_gameConfig.pieceChoice = pieceChoices.bags(bagprefabs.tetrominosPlusGrenade)
 
 _userConfig.sdf = 1/0
 //_userConfig.usesdarr = true;
@@ -112,7 +107,7 @@ function Update(canvas:HTMLCanvasElement,timestamp,deltaTime){
     return;
   ctx.reset()
 
-  ctx.fillStyle = roms.colour.black.toHex();
+  ctx.fillStyle = palette.black.toHex();
   ctx.textAlign = "start"; 
   ctx.font = "italic 128px Arial";
   ctx.letterSpacing = Math.sin((timestamp - starttime)/3000)**4 * 512 + "px"
@@ -165,7 +160,7 @@ function App() {
         singleplayergame.Update(deltaTime)
       }
 
-      document.body.style.backgroundColor = roms.colour.background.toHex()
+      document.body.style.backgroundColor = palette.background.toHex()
       setTimeout(everyFrame,1000/FPS)
     }
 
@@ -214,19 +209,19 @@ function App() {
     return (
       <div className="App">
         <TextDisplay ref={debugu}/>
-        <button style={{transform: "translate(-60vh, -50%) translate(0,-10vh)"}} onClick={()=>{
+        <button style={{transform: "translate(-30vw, -50%) translate(0,-10vh)"}} onClick={()=>{
           StartGame(debugu,configs.master);
         }}>play normal</button>
-        <button style={{transform: "translate(-60vh, -50%)"}} onClick={()=>{
+        <button style={{transform: "translate(-30vw, -50%)"}} onClick={()=>{
           StartGame(debugu,configs["40l"]);
         }}>play 40l</button>
-        <button style={{transform: "translate(-60vh, -50%) translate(0,10vh)"}} onClick={()=>{
+        <button style={{transform: "translate(-30vw, -50%) translate(0,10vh)"}} onClick={()=>{
           StartGame(debugu,configs.warlock);
         }}>play warlock</button>
-        <button style={{transform: "translate(-60vh, -50%) translate(0,20vh)"}} onClick={()=>{
+        <button style={{transform: "translate(-30vw, -50%) translate(0,20vh)"}} onClick={()=>{
           StartGame(debugu,configs.big);
         }}>play big</button>
-        <button style={{transform: "translate(-60vh, -50%) translate(0,30vh)"}} onClick={()=>{
+        <button style={{transform: "translate(-30vw, -50%) translate(0,30vh)"}} onClick={()=>{
           setScene("menu")
         }}>back</button>
       </div>
@@ -238,10 +233,10 @@ function App() {
     <div className="App">
       <TextDisplay ref={debugu}/>
       <canvas ref={menuCanvasRef} width="3413px" height="2560px"/>
-      <button style={{transform: "translate(-60vh, -50%)"}} onClick={()=>{
+      <button style={{transform: "translate(-30vw, -50%)"}} onClick={()=>{
         StartGame(debugu,_gameConfig);
       }}>play</button>
-      <button style={{transform: "translate(-60vh, -50%) translate(0,-10vh)"}} onClick={()=>{
+      <button style={{transform: "translate(-30vw, -50%) translate(0,-10vh)"}} onClick={()=>{
         setScene("2")
       }}>level select</button>
     </div>

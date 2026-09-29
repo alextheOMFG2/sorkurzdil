@@ -1,5 +1,6 @@
-import roms, { piece, tileModel } from './roms.ts'
-import { vector2 } from './basics.ts'
+import { piece, tileModel } from './roms.ts'
+import { colour3, vector2 } from './basics.ts'
+import { tileModels } from './roms.ts';
 
 export enum tileType{
     none,
@@ -22,20 +23,26 @@ export class tile{
   tileType=tileType.none;
   hardy=false;
 
-  constructor(_tileModel=roms.tileModels.none,birth?:number){
+  constructor(_tileModel=tileModels.none,birth?:number){
     this.tileModel = _tileModel;
-    this.isEmpty = _tileModel === roms.tileModels.none;
+    this.isEmpty = _tileModel === tileModels.none;
     this.birth = birth;
   }
 
   static garbage(){
-    const robot = new tile(roms.tileModels.garbage)
+    const robot = new tile(tileModels.garbage)
     return robot
   }
 
   static hardy(){
-    const robot = new tile(roms.tileModels.impermanent)
+    const robot = new tile(tileModels.impermanent)
     robot.hardy = true
+    return robot
+  }
+
+  static glue(){
+    const robot = new tile(new tileModel(colour3.fromHex("#ebecbc")).doNotGrey())
+    robot.tileType = tileType.glue
     return robot
   }
 }
@@ -349,12 +356,32 @@ export class matrix{
         return garbagelines;
     }
 
+    CountEmpties(y:number){
+        var empties = 0
+        for(let x=0; x<this.width; x++){
+            let i = new vector2(x,y);
+            let thile = this.GetTile(i);
+            if(thile&&!this.IsNull(i)) continue
+            empties += 1
+        }
+        return empties
+    }
+
+    ClearEligible(i:vector2){ // too lazy to fit this into the currect clear mechanism right now but it would look cleaner i think
+        let _tile = this.GetTile(i);
+        if(!_tile) return false; //this only works because if one tile isnt here we dont have to check that the rest is complete!!!
+        if(!_tile.countstoclear) return false;
+        const death = _tile.death;
+        if(death !== undefined) return false;
+        return true
+    }
+
     GreyAll(){
         const nonempties = this.GetNonNullPositions()
         for(const i of nonempties){
             const tile = this.GetTile(i)
             if(!tile) continue
-            tile.tileModel = roms.tileModels.garbage
+            tile.tileModel = tileModels.garbage
         }
     }
 }
