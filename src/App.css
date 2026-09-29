@@ -1,0 +1,112 @@
+.App {
+  height: 100vh;
+  width: 100vw;
+  justify-content: center;
+  align-items: center;
+}
+
+*{
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.corner{
+  position: fixed;
+  top: 0%;
+  left: 0%;
+  transform: translate(0%, 0%);
+}
+
+@keyframes myAnimation {
+  from {opacity: 1; font-size: 16px;}
+  to {opacity: -1; font-size: 128px;}
+}
+
+@keyframes great {
+  0% {color: #ffff00;}
+  49.999% {color: #ffff00;}
+  50% {color: #00ffff;}
+  99.999% {color: #00ffff;}
+}
+
+@keyframes tsuki {
+  00.000% {color: #3f00ff};
+  06.249% {color: #ffffff};
+  06.250% {color: #00e9ff};
+  12.499% {color: #ffffff};
+  12.500% {color: #00ff73};
+  18.749% {color: #ffffff};
+  18.750% {color: #00ff63};
+  24.999% {color: #ffffff};
+  25.000% {color: #00ff56};
+  31.249% {color: #ffffff};
+  31.250% {color: #ff0081};
+  37.499% {color: #ffffff};
+  37.500% {color: #0008ff};
+  43.749% {color: #ffffff};
+  43.750% {color: #9b00ff};
+  49.999% {color: #ffffff};
+  50.000% {color: #ff004a};
+  56.249% {color: #ffffff};
+  56.250% {color: #ff008f};
+  62.499% {color: #ffffff};
+  62.500% {color: #ff002e};
+  68.749% {color: #ffffff};
+  68.750% {color: #00ffa7};
+  74.999% {color: #ffffff};
+  75.000% {color: #00ff7d};
+  81.249% {color: #ffffff};
+  81.250% {color: #00ff75};
+  87.499% {color: #ffffff};
+  87.500% {color: #3000ff};
+  93.749% {color: #ffffff};
+  93.750% {color: #0098ff};
+  99.999% {color: #ffffff};
+}
+
+@keyframes kruxxdd {
+  00.000% {color: #000000};
+  06.249% {color: #430080};
+  06.250% {color: #3a0070};
+  12.499% {color: #6400bf};
+  12.500% {color: #4f0097};
+  18.749% {color: #6000b7};
+  18.750% {color: #4b008f};
+  24.999% {color: #7500df};
+  25.000% {color: #6c00cf};
+  31.249% {color: #260048};
+  31.250% {color: #2a0050};
+  37.499% {color: #2e0058};
+  37.500% {color: #7100d7};
+  43.749% {color: #6800c7};
+  43.750% {color: #080010};
+  49.999% {color: #7d00ef};
+  50.000% {color: #040008};
+  56.249% {color: #7900e7};
+  56.250% {color: #190030};
+  62.499% {color: #110020};
+  62.500% {color: #53009f};
+  68.749% {color: #5800a7};
+  68.750% {color: #5c00af};
+  74.999% {color: #150028};
+  75.000% {color: #0d0018};
+  81.249% {color: #360068};
+  81.250% {color: #210040};
+  87.499% {color: #320060};
+  87.500% {color: #1d0038};
+  93.749% {color: #470087};
+  93.750% {color: #3f0078};
+  99.999% {color: #8100f7};
+}
+
+canvas {
+  position: fixed;
+  max-height: 100%;
+  max-width: 100%;
+  aspect-ratio: 4/3;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}

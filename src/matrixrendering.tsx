@@ -1,0 +1,596 @@
+import roms, { piece, tileModel } from './roms.ts'
+import { colour3, modular, vector2 } from './basics.ts'
+import { clear } from '@testing-library/user-event/dist/clear';
+import { game, gameManager } from './sorkurzdil.ts';
+import visualFlags from './visualflags.ts';
+import { board, matrix, tile } from './board.ts';
+import { simpleKickType, simplifyKickType } from './rotationsystems.ts';
+import { use } from 'react';
+import { cameraMode } from './config.ts';
+
+var imagesCache:{[key:string]:HTMLImageElement} = {};
+var loading:{[key:string]:boolean} = {};
+
+function FDecay(x:number){
+    return 1 - Math.exp(-x/32);
+}
+
+function lerp(a:number,b:number,t:number){
+    return a + (b - a) * t
+}
+
+function flipy(x:vector2){
+    return new vector2(x.x,-x.y);
+}
+
+export default class MatrixRendering {
+
+    latePiece = undefined as piece|undefined;
+
+    boardtilesize:vector2;
+    tilesize:vector2;
+
+    /**function to scale vector by tile lengths*/
+    FSTL(x:vector2,tilesize=this.boardtilesize){
+        return new vector2(x.x * tilesize.x,x.y * tilesize.y);
+    }
+
+    //configuration
+    offsetfactor = 0.6;
+    rotatefactor = 0.02;
+    shakefactor = 7;
+
+    gameManager:gameManager;
+    game:game;
+    flags:visualFlags;
+    board:board;
+
+    canvas:HTMLCanvasElement;
+    ctx:CanvasRenderingContext2D;
+    origin:vector2 = vector2.zero;
+
+    drawnMatrix(){
+        const drawnMatrixWidth = this.board.matrix.width
+        const drawnMatrixHeight = this.board.matrix.height
+        return this.FSTL(new vector2(drawnMatrixWidth,drawnMatrixHeight));
+    }
+
+    matrixTopCoords(){
+        let drawnMatrixHeight = this.board.matrix.height
+        let extraheight = 0;
+        if(this)
+        return ((drawnMatrixHeight - 1) / 2 + extraheight) * this.boardtilesize.y;
+    }
+
+    /*//im a big nonbinarygenderedindividual now i can handle rotation by myself
+    RotateRectangle(start:vector2,size:vector2,theta:number){
+        var end = start.add(size);
+        start = start.rotateAngle(theta);
+        end = end.rotateAngle(theta);
+
+        start = new vector2(Math.floor(start.x) + 0.5,Math.floor(start.y) + 0.5)
+        end = new vector2(Math.floor(end.x) + 0.5,Math.floor(end.y) + 0.5)
+
+        size = end.sub(start);
+        size = size.rotateAngle(-theta);
+
+        return [start,size]
+    }
+
+    DrawRectangle(start:vector2,size:vector2){
+        this.ctx.resetTransform();
+
+        this.ctx.translate(this.matrixorigin.x,this.matrixorigin.y);
+        const [rotatedstart,rotatedsize] = this.RotateRectangle(start,size,this.matrixangle);
+        this.ctx.translate(rotatedstart.x,rotatedstart.y);
+        this.ctx.rotate(this.matrixangle);
+
+        this.ctx.fillRect(
+            0,
+            0,
+            rotatedsize.x,
+            rotatedsize.y,
+        )
+    }*/ // :(
+
+    cullline = 0;
+
+    FillRect(start:vector2,size:vector2,zoom=true,bypassboardoffset=true){
+        if(!bypassboardoffset){
+            start = new vector2(start.x,start.y - this.boardtilesize.y * this.board.yoffset)
+            if(start.y > this.cullline)
+                return
+            if(start.y + size.y > this.cullline)
+                size = new vector2(size.x,this.cullline - start.y)
+        }
+
+        if(!zoom){
+            this.ctx.fillRect(
+                Math.round(start.x),
+                Math.round(start.y),
+                Math.round(size.x),
+                Math.round(size.y),
+            )
+            return
+        }
+        const transformedStart = start.mul(this.matrixzoom);
+        const transformedSize = size.mul(this.matrixzoom);
+        const transformedStartRoundoff = new vector2(Math.round(transformedStart.x),Math.round(transformedStart.y));
+        const roundoffOffset = transformedStartRoundoff.sub(transformedStart);
+        const transformedSizeRoundoff = new vector2(transformedSize.x - roundoffOffset.x,transformedSize.y - roundoffOffset.y);
+
+
+        this.ctx.fillRect(
+            Math.round(transformedStartRoundoff.x),
+            Math.round(transformedStartRoundoff.y),
+            Math.round(transformedSizeRoundoff.x),
+            Math.round(transformedSizeRoundoff.y),
+        )
+    }
+
+    DrawSquare(_tileModel:tileModel,screenpos:vector2,zoom=true,bypassboardoffset=true,tilesize=this.boardtilesize){
+        if (_tileModel.isNull)
+            return;
+
+
+        for(const rect of _tileModel.rectangles){
+            const colour = rect.evaluateColour({});
+            this.ctx.fillStyle = colour.toHex();
+            this.ctx.globalAlpha = colour.a;
+            
+            const start = screenpos.sub(tilesize.div(2)).add(this.FSTL(rect.position,tilesize));
+            const size = this.FSTL(rect.size,tilesize);
+            this.FillRect(start,size,zoom,bypassboardoffset);
+        }
+        /**for(const imageRect of _tileModel.images){
+            const imageName = imageRect.image;
+            let image = imagesCache[imageName]
+            if(!image && !loading[imageName]){
+                image = new Image();
+                image.src = imageName;
+                loading[imageName] = true;
+                image.addEventListener("load", () => {
+                    imagesCache[imageName] = image;
+                });
+            }
+            if(!image)
+                continue;
+            this.ctx.globalAlpha = imageRect.alpha;
+
+            const start = screenpos.sub(this.tilesize.div(2)).add(this.FSTL(imageRect.position))
+            const size = this.FSTL(imageRect.size);
+            this.ctx.drawImage(
+                image,
+                Math.floor(start.x),
+                Math.floor(start.y),
+                Math.floor(size.x),
+                Math.floor(size.y),
+            );
+        }*/ //deprecating this because i dont need images right now and i want to revamp drawing
+    }
+
+    DrawTile(_tile:tile,screenpos:vector2,bypassboardoffset=false){
+        if(this.game.gameOver){
+            this.DrawSquare(new tileModel(roms.colour.garbage),screenpos,true,bypassboardoffset);
+            return
+        }
+
+        if(!_tile.birth)
+            throw new Error("null tile")
+
+        var age = (Date.now() - _tile.birth)/1000 - 0.5;
+
+        var _tileModel = _tile.tileModel;
+
+        if(this.game.userConfig.boardGreying && _tileModel.grey)
+            _tileModel = _tileModel.lerpq({},roms.colour.garbage,FDecay(age))
+
+        if (_tile.wound){
+            const woundedness = _tile.wound / this.game.gameConfig.woundsclearby;
+            _tileModel = new tileModel(roms.colour.wound).lerp({},roms.colour.garbage,1 - woundedness);
+        }
+        
+        if (age <= 0)
+            _tileModel = _tileModel.lerpq({},roms.colour.shine,-age*2);
+
+        if (_tile.death){
+            const deadFor = Date.now() - _tile.death;
+            _tileModel = _tileModel.withOpacity({},1 - Math.min(1,deadFor / (this.game.gameConfig.lineclearare + this.game.gameConfig.linecleartime)));
+        }
+
+        this.DrawSquare(_tileModel,screenpos,true,bypassboardoffset);
+    }
+
+    DrawMatrixBackground(){
+        const _drawnMatrix = this.drawnMatrix();
+
+        this.ctx.globalAlpha = 1
+        this.ctx.fillStyle = roms.colour.board.toHex();
+        this.FillRect(_drawnMatrix.flip().div(2),_drawnMatrix)
+    }
+
+    /*input screenpos is the center of the matrix*/
+    CoordsToScreenPos(coords:vector2){
+        const _drawnMatrix = this.drawnMatrix();
+        
+        const originX = - (_drawnMatrix.x - this.boardtilesize.x) / 2, originY = + (_drawnMatrix.y - this.boardtilesize.y) / 2
+        
+        return new vector2(
+            originX + this.FSTL(coords).x,
+            originY - this.FSTL(coords).y
+        )
+    }
+
+    DrawMatrix(){
+        const nonempties = this.board.matrix.GetNonNullPositions()
+
+        for(let i=0; i<nonempties.length; i++){
+            const coords = nonempties[i];
+            const tile = this.board.matrix.GetTile(coords)
+            if(!tile) continue;
+            this.DrawTile(tile,this.CoordsToScreenPos(coords),false)
+        }
+    }
+
+    DrawPiece(piece:piece,screenpos:vector2,_tileModel:tileModel,showCOR=false,zoom=true,bypassboardoffset=true,tilesize=this.boardtilesize){
+        _tileModel = _tileModel || piece.tileModel;
+        for (let i=0; i<piece.tiles.length; i++){
+            const offset = piece.tiles[i];
+            this.DrawSquare(_tileModel,screenpos.add(flipy(this.FSTL(offset,tilesize))),zoom,bypassboardoffset,tilesize)
+        }
+
+        if(!showCOR||!this.game.gameConfig.allowRotation)return;
+
+        const offset = flipy(this.FSTL(roms.CORoffsets[simplifyKickType(piece.kickType)].rotate(piece.orientiation),tilesize));
+        let CORpos = screenpos.add(offset)
+        this.ctx.globalAlpha *= this.game.userConfig.COROpacity
+        this.ctx.fillStyle = roms.colour.background.toHex();
+        this.FillRect(CORpos.sub(this.CORsize.div(2)),this.CORsize,zoom,bypassboardoffset)
+    }
+
+    /*DrawPieceCompensate(piece:piece,screenpos:vector2,_tileModel:tileModel,showCOR=false,zoom=true){
+        const compensation = roms.compensations[simplifyKickType(piece.kickType)].flip();
+
+        this.DrawPiece(piece,screenpos.add(flipy(this.FSTL(compensation))),_tileModel,showCOR,zoom);
+    }*/ // renderer has a copy of this already as well is there a difference idk
+
+    ActivePieceDrawnPosition(){
+        let usepos =this.board.activeposition;
+        if(!this.gameManager.movementManager.Grounded() && this.game.gameConfig.gravity>0)
+            if(this.game.userConfig.smoothGravity)
+                usepos = usepos.add(new vector2(0,-this.gameManager.movementManager.gravityelapsed / this.game.gameConfig.gravity));
+            else if(this.gameManager.movementManager.gravityelapsed / this.game.gameConfig.gravity >= 0.5)
+                usepos = usepos.add(new vector2(0,-0.5));
+
+        return usepos;
+    }
+
+    /*DrawQueue(){
+        const _drawnMatrix = this.drawnMatrix();
+        const toprightX = (_drawnMatrix.x - this.tilesize.x) / 2, toprightY = -(_drawnMatrix.y - this.tilesize.y) / 2
+        const topright = new vector2(toprightX,toprightY);
+
+        for(let i=0; i<this.gameManager.queue.length; i++){
+            const queuePiece = this.gameManager.queue[i];
+            var useModel = queuePiece.tileModel;
+            if(this.game.gameOver)
+            useModel = new tileModel(roms.colour.garbage);
+
+            this.DrawPieceCompensate(queuePiece,
+            topright.add(this.FSTL(new vector2(3 + i * 4.5,1))),
+            useModel
+            );
+        }
+    }
+
+    DrawHold(){
+        const _drawnMatrix = this.drawnMatrix();
+        const topleftX = - (_drawnMatrix.x - this.tilesize.x) / 2, topleftY = - (_drawnMatrix.y - this.tilesize.y) / 2
+        const topleft = new vector2(topleftX,topleftY);
+
+        for(let i=0; i<this.gameManager.hold.length; i++){
+            const queuePiece = this.gameManager.hold[i];
+            var useModel = queuePiece.tileModel;
+            if(this.gameManager.holdsused >= this.game.gameConfig.holds || this.game.gameOver)
+            useModel = new tileModel(roms.colour.garbage);
+            
+            this.DrawPieceCompensate(queuePiece,
+            topleft.add(this.FSTL(new vector2(-3 - i * 4.5,1))),
+            useModel
+            );
+        }
+    }*/ //i dunno why i still have these these would draw on the same layer as the board and rotate and stuff
+
+    DrawGhost(){
+        if(!this.board.activepiece) return;
+        let landpos =this.board.activeposition.add(this.gameManager.movementManager.DropHeight());
+        let ghostModel = this.board.activepiece.tileModel.withOpacity({},this.game.userConfig.ghostOpacity);
+        this.DrawPiece(this.board.activepiece,
+            this.CoordsToScreenPos(landpos),
+            ghostModel,
+            true,true,false
+        );
+    }
+
+    CORsize = new vector2(8,8);
+
+    DrawActivePiece(){
+        if(!this.board.activepiece) return;
+
+        const usepos = this.ActivePieceDrawnPosition();
+
+        let pieceModel = this.board.activepiece.tileModel;
+        pieceModel = pieceModel.colourOperation({},colour3.saturate,0.4);
+
+        let lockTime = this.game.gameConfig.gravity
+        if(this.game.gameConfig.useLockTime)
+            lockTime = this.game.gameConfig.lockTime
+        pieceModel = pieceModel.lerp({},roms.colour.board,this.gameManager.movementManager.lockelapsed/lockTime * 0.8);
+
+        let screenpos = this.CoordsToScreenPos(usepos)
+        this.DrawPiece(this.board.activepiece,
+            screenpos,
+            pieceModel,
+            true,true,false
+        );
+    }
+
+    visualHealth = 0;
+
+    b3bmargin = 4;
+
+    meterswidths = 16;
+
+    DrawHealth(){
+        const _drawnMatrix = this.drawnMatrix();
+        
+        if(this.game.health >16)
+            this.ctx.fillStyle = roms.colour.b2b2b.toHex();
+        else
+            this.ctx.fillStyle = roms.colour.b2b.toHex();
+
+        const healthbar  = this.visualHealth / 16;
+
+        const useMatrixY = _drawnMatrix.y / this.matrixzoom;
+
+        const section1 = Math.min(1,healthbar);
+        const section2 = Math.max(0,healthbar - 1) * 4
+
+        this.FillRect(
+            new vector2(
+                -_drawnMatrix.x / 2 - this.meterswidths,
+                -useMatrixY / 2 + (useMatrixY * 16/20 - this.b3bmargin) * (1-section1) + useMatrixY * 4/20 + this.b3bmargin - this.cameraYtarget*this.boardtilesize.y/this.matrixzoom
+            ),
+            new vector2(this.meterswidths,(useMatrixY * 16/20 -this.b3bmargin) * section1)
+        )
+
+        this.FillRect(
+            new vector2(
+                -_drawnMatrix.x / 2 - this.meterswidths,
+                -useMatrixY / 2 + (useMatrixY * 4/20) * (1-section2) - this.cameraYtarget*this.boardtilesize.y/this.matrixzoom
+            ),
+            new vector2(this.meterswidths,(useMatrixY * 4/20) * section2)
+        )
+    }
+
+    garbagemargin = 4;
+
+    DrawGarbageQueue(){
+        const _drawnMatrix = this.drawnMatrix();
+
+        const useMatrixY = _drawnMatrix.y / this.matrixzoom
+
+        const deletion:number[] = []
+
+        let lowerY = 0
+        for(const packet of this.gameManager.garbageQueue){
+            const enterT = this.game.gameConfig.garbageentry > 0 ? (packet.entrance / this.game.gameConfig.garbageentry) : 1;
+            if(enterT < 1)
+                this.ctx.globalAlpha = 0.1 + enterT * 0.5
+            else
+                this.ctx.globalAlpha = 1
+            const ripenT = this.game.gameConfig.garbageripen > 0 ? (packet.ripen / this.game.gameConfig.garbageripen) : 1;
+            
+            this.ctx.fillStyle = roms.colour.attackunentered.toHex();
+            if (enterT >= 1 && ripenT >= 1)
+                this.ctx.fillStyle = roms.colour.attack1.flash(roms.colour.attack2,33/1000).toHex();
+
+            var boxheight = packet.maxlines * this.boardtilesize.y / this.matrixzoom - this.garbagemargin
+            if(packet.used){
+                const lingerT = this.game.gameConfig.garbageare > 0 ? (packet.ripen / this.game.gameConfig.garbageare / packet.maxlines) : 1
+
+                if(lingerT >= 1)
+                {
+                    deletion.push(this.gameManager.garbageQueue.indexOf(packet))
+                    continue
+                }
+
+                boxheight *= 1 - lingerT
+                this.ctx.fillStyle = roms.colour.attackused.toHex();
+            }
+
+            this.FillRect(
+                new vector2(
+                    _drawnMatrix.x / 2,
+                    useMatrixY / 2 - boxheight - lowerY - this.cameraYtarget*this.boardtilesize.y/this.matrixzoom
+                ),
+                new vector2(this.meterswidths,boxheight)
+            )
+
+            if(!packet.used && enterT >= 1 && ripenT < 1){
+                this.ctx.fillStyle = roms.colour.attackunripe.toHex();
+                this.FillRect(
+                new vector2(
+                    _drawnMatrix.x / 2,
+                    useMatrixY / 2 - boxheight * ripenT - lowerY - this.cameraYtarget*this.boardtilesize.y/this.matrixzoom
+                ),
+                new vector2(this.meterswidths,boxheight * ripenT)
+            )
+            }
+
+            lowerY += boxheight + this.garbagemargin
+        }
+        
+        for (let i = deletion.length - 1; i >= 0; i--) {
+            this.gameManager.garbageQueue.splice(i,1)
+        }
+    }
+
+    DrawBoard(){
+        this.DrawMatrixBackground();
+        this.DrawMatrix();
+
+        this.DrawHealth();
+        this.DrawGarbageQueue();
+
+        if(this.game.gameConfig.drawGhost)
+            this.DrawGhost();
+
+        this.DrawActivePiece();
+
+    }
+
+    cameraYoffset = 0;
+    cameraYtarget = 0;
+
+    matrixtarget = vector2.zero;
+    matrixoffset = vector2.zero;
+    targetangle = 0;
+    matrixangle = 0;
+    
+    matrixscroll = 0;
+    targetzoom = 1;
+    matrixzoom = 1;
+
+    shakeamount = 0;
+    targetshake = 0;
+
+    dosomestuffandthenTranslation(deltaTime:number){
+       
+        //sets the targets
+        if(!this.game.gameOver){
+            //keep piece on screen
+            switch(this.game.userConfig.cameraMode){
+                case cameraMode.focusActive:{
+                    let trackpos = this.ActivePieceDrawnPosition();
+                    let top = Math.max(trackpos.y - this.board.piecespawnlocation.y / 2,0);
+                    let bottom = trackpos.y - this.board.piecespawnlocation.y - 1;
+                    if(this.cameraYtarget > top)
+                        this.cameraYtarget = top;
+                    if(this.cameraYtarget < bottom)
+                        this.cameraYtarget = bottom;
+                    this.targetzoom = 1;
+                    break
+                }
+                case cameraMode.focusGhost:{
+                    let trackpos = this.board.activeposition.add(this.gameManager.movementManager.DropHeight());
+                    let top = trackpos.y;
+                    let bottom = Math.max(trackpos.y - this.board.piecespawnlocation.y / 2,0);
+                    if(this.cameraYtarget > top)
+                        this.cameraYtarget = top;
+                    if(this.cameraYtarget < bottom)
+                        this.cameraYtarget = bottom;
+                    this.targetzoom = 1;
+                    break
+                }
+                case cameraMode.focusWholeBoard:
+                    if(this.board.matrix.height > 0)
+                        this.targetzoom = Math.min(1,this.board.matrix.height/this.board.matrix.GetEffectiveHeight())
+                    else
+                        throw new Error("amazing edge case you get an achievement for finding this")
+                    this.cameraYtarget = Math.max(0,(this.board.matrix.GetEffectiveHeight() - this.board.matrix.height) / 2 * this.targetzoom)
+                    break
+                case cameraMode.fixed:
+                    this.cameraYtarget = 0;
+                    this.targetzoom = 1;
+            }
+            
+            //move the board around
+            if(isNaN(this.flags.nongravitydisplacementthisframe.x) || isNaN(this.flags.nongravitydisplacementthisframe.y))
+                throw new Error("nan displacement")
+            this.matrixoffset = this.matrixoffset.add(flipy(this.flags.nongravitydisplacementthisframe.mul(this.offsetfactor)));
+            this.flags.nongravitydisplacementthisframe = vector2.zero;
+            
+
+            //rotate the board around
+            //this.targetangle += deltaTime/1000; //dont use this
+            if(this.board.activepiece){
+                if(this.latePiece && !this.flags.piecechange){
+                    let rotation = modular.displacement(this.board.activepiece.orientiation as number,this.latePiece.orientiation,4)
+                    rotation *= Math.PI / 2
+                    if(!this.flags.justspinned)
+                        rotation *= 0.2
+                    this.matrixangle +=  rotation * this.rotatefactor;
+                }
+                this.latePiece = this.board.activepiece
+                this.flags.piecechange = false;
+                this.flags.justspinned = false;
+            }
+
+            //receive
+            this.shakeamount += this.flags.shakeincrease;
+            this.flags.shakeincrease = 0;
+        }
+
+        //tweening
+        const t = 1 - Math.exp(-deltaTime/100);
+
+        const dist = Math.abs(this.cameraYoffset - this.cameraYtarget);
+        const yfactor = 1 - Math.exp(-deltaTime/1000*Math.max(dist/2,1));
+        this.cameraYoffset = lerp(this.cameraYoffset,this.cameraYtarget,yfactor);
+        this.matrixscroll = this.cameraYoffset * this.boardtilesize.y;
+
+        this.matrixzoom = lerp(this.matrixzoom,this.targetzoom,t);
+        
+        const offset = this.matrixtarget.sub(this.matrixoffset);
+        const magnitude = offset.magnitude();
+        if(magnitude > 0.0001){
+            const direction = offset.normalise();
+            this.matrixoffset = this.matrixoffset.add(direction.mul(Math.min(magnitude * t,deltaTime*4)))
+        }
+        
+        this.matrixangle = lerp(this.matrixangle,this.targetangle,t);
+
+        this.visualHealth = lerp(this.visualHealth,this.game.health,t);
+        
+        if(this.shakeamount > 0.0001){
+            const shakeangle = Math.random() * Math.PI * 2
+            this.shakeamount = lerp(this.shakeamount,this.targetshake,t);
+            this.matrixoffset = this.matrixoffset.add(vector2.fromAngle(shakeangle).mul(this.shakeamount * this.shakefactor));
+        }
+    }
+
+    RenderStep(deltaTime:number){
+        const centerX = this.canvas.width/2, centerY = this.canvas.height/2;
+        this.origin = new vector2(centerX,centerY);
+        
+        this.ctx.reset();
+
+        this.game = this.gameManager.game
+        this.boardtilesize = this.game.userConfig.tilescalar.hadamard(this.game.gameConfig.boardscalar)
+        
+        this.dosomestuffandthenTranslation(deltaTime);
+        this.ctx.translate(centerX,centerY+Math.floor(this.matrixscroll))
+        this.canvas.style.transform = "translate(-50%, -50%) rotate(" + this.matrixangle + "rad) translate(" +this.matrixoffset.x + "px, " + this.matrixoffset.y + "px)"
+
+        this.cullline = this.drawnMatrix().y / 2
+
+        this.DrawBoard()
+    }
+
+    constructor(_gameManager:gameManager,canvas:HTMLCanvasElement){
+        const ctx = canvas.getContext('2d');
+        if(!ctx)
+            throw new Error("no canvas")
+        this.canvas = canvas;
+        this.ctx = ctx;
+
+        this.gameManager = _gameManager;
+        this.game = _gameManager.game;
+        this.flags = this.game.flags;
+        this.board = _gameManager.board;
+
+        this.tilesize = this.game.userConfig.tilescalar
+        this.boardtilesize = this.game.userConfig.tilescalar.hadamard(this.game.gameConfig.boardscalar)
+    }
+}

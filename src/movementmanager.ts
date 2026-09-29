@@ -1,0 +1,615 @@
+import { vector2 } from "./basics.ts"
+import { board, tile, tileType } from "./board.ts";
+import config, { Command, gameConfig, spinDetection, userConfig } from "./config.ts";
+import { gimmickReport } from "./gimmicks.ts";
+import InputManager from "./inputmanager.ts";
+import roms, { piece } from "./roms.ts";
+import { SpinType, symmetry } from "./rotationsystems.ts";
+import { game } from "./sorkurzdil.ts";
+import visualFlags from "./visualflags.ts";
+
+export default class MovementManager{
+    game:game;
+
+    board:board;
+
+    spineligible=false;
+    minieligible=false;
+
+    gravityelapsed = 0;
+    lockelapsed = 0;
+    lockcancelsused = 0;
+
+    lockharddropdebounce = 0;
+
+    onLock:((spin:boolean,mini:boolean,immobile:boolean,_gimmickReport:gimmickReport)=>void)[]=[];
+
+    constructor(_game:game,board:board){
+        this.game = _game;
+        this.board = board;
+        
+        if(!this.game.gameConfig.usegravity)
+            this.game.gameConfig.gravity = this.game.userConfig.sdarr;
+
+        this.game.inputManager.onKeyDown.push((command:Command)=>{
+            if(this.game.gameOver || !this.game.gameOn) return;
+
+            switch(command){
+                case Command.ShiftLeft:
+                    this.Move(vector2.left);
+                    break;
+                case Command.ShiftRight:
+                    this.Move(vector2.right);
+                    break;
+                case Command.ShiftDown:
+                    this.Move(vector2.down);
+                    break;
+                case Command.ShiftUp:
+                    if(!this.game.gameConfig.allowShiftUp)break;
+                    this.Move(vector2.up);
+                    break;
+                case Command.SonicDrop:
+                    var drop = this.SonicDrop();
+                    if(this.game.gameConfig.simplescoring === config.simpleScoringSystems.guideline)
+                        this.game.score += Math.floor(-drop * 1.5);
+                    break;
+                case Command.AirLock:
+                    if(!this.game.gameConfig.allowAirLock) break
+                    if(this.gravityelapsed > this.game.gameConfig.gravity / 2)
+                        this.AttemptShift(vector2.down);
+                    this.LockSequence();
+                    break;
+                case Command.HardDrop:
+                    if(!this.game.gameConfig.allowHardDrop) break
+                    if(this.lockharddropdebounce < this.game.userConfig.lockharddropdebounce) break
+                    var drop = this.SonicDrop();
+                    if(this.game.gameConfig.simplescoring === config.simpleScoringSystems.guideline)
+                        this.game.score += -drop * 2;
+                    this.LockSequence();
+                    break;
+                case Command.RotNull:
+                    if(!this.game.gameConfig.allowRotation)break;
+                    this.Rotate(0);
+                    break;
+                case Command.RotCW:
+                    if(!this.game.gameConfig.allowRotation)break;
+                    this.Rotate(1);
+                    break;
+                case Command.Rot180:
+                    if(!this.game.gameConfig.allow180 || !this.game.gameConfig.allowRotation) break
+                    this.Rotate(2);
+                    break;
+                case Command.RotWS:
+                    if(!this.game.gameConfig.allowRotation)break;
+                    this.Rotate(3);
+                    break;
+                case Command.HoriFlip:
+                    if(!this.game.gameConfig.allowFlips)break;
+                    this.Hadamard(new vector2(-1,1));
+                    break;
+                case Command.VertFlip:
+                    if(!this.game.gameConfig.allowFlips)break;
+                    this.Hadamard(new vector2(1,-1));
+                    break;
+            }
+        })
+    }
+
+    Noncolliding(shift:vector2){
+        if(!this.board.activepiece)
+            return;
+
+        for (let i=0; i<this.board.activepiece.tiles.length; i++){
+            const offset = this.board.activepiece.tiles[i];
+            if(!this.board.matrix.IsValid(this.board.activeposition.add(offset).add(shift)))
+                return false;
+        }
+        return true;
+    }
+
+    StrictlyInBounds(shift:vector2){
+        if(!this.board.activepiece)
+            return;
+
+        for (let i=0; i<this.board.activepiece.tiles.length; i++){
+            const offset = this.board.activepiece.tiles[i];
+            if(!this.board.matrix.StrictlyInBounds(this.board.activeposition.add(offset).add(shift)))
+                return false;
+        }
+        return true;
+    }
+
+    InBounds(shift:vector2){
+        if(!this.board.activepiece)
+            return;
+
+        for (let i=0; i<this.board.activepiece.tiles.length; i++){
+            const offset = this.board.activepiece.tiles[i];
+            if(!this.board.matrix.InBounds(this.board.activeposition.add(offset).add(shift)))
+                return false;
+        }
+        return true;
+    }
+
+    /**switches between valid placement and in bounds based on active piece phasing*/
+    ValidShift(shift:vector2){
+        if(this.game.gameConfig.activepiecephasethroughblocks)
+            return this.InBounds(shift);
+        else
+            return this.Noncolliding(shift);
+    }
+
+    Grounded(){
+        return !this.ValidShift(vector2.down);
+    }
+
+    /**how much can you shift downwards before you hit something (aka ghost piece calculation)
+     * 
+     * also its actualy a vector2 for the offset that you make for the drop
+     * 
+     * you can also use this for autoshifting
+     * 
+     * this uses placement checking so you can use it with harddrop
+    */
+    DropHeight(dropdirection=vector2.down){
+        if(!this.board.activepiece)
+            return vector2.zero;
+
+        let dropHeight = vector2.zero;
+        let exhaust = 0
+        while(this.Noncolliding(dropHeight.add(dropdirection)) && this.InBounds(dropHeight.add(dropdirection))){
+            dropHeight = dropHeight.add(dropdirection);
+            
+            exhaust++;
+            if(exhaust > 3000){
+                throw new Error("your took too long");
+            }
+        }
+        return dropHeight;
+    }
+
+    ValidPiece(_piece:piece,shift:vector2=vector2.zero){
+        for (const offset of _piece.tiles){
+            if(this.game.gameConfig.activepiecephasethroughblocks && !this.board.matrix.InBounds(this.board.activeposition.add(offset).add(shift)))
+                return false
+            if(!this.game.gameConfig.activepiecephasethroughblocks && !this.board.matrix.IsValid(this.board.activeposition.add(offset).add(shift)))
+                return false;
+        }
+        return true;
+    }
+
+    //piece movement
+
+    Leeway(fallHeight:number){
+        for(let i=1; i<=fallHeight; i++)
+            if(!this.ValidShift(new vector2(0,-i)))
+                return false;
+        return true;
+    }
+
+    AttemptShift(shift:vector2){
+        if(!this.board.activepiece)
+            return false
+        if(!this.ValidShift(shift))
+            return false
+        this.board.activeposition = this.board.activeposition.add(shift);
+        return true
+    }
+
+    Move(shift:vector2){
+        let success = this.AttemptShift(shift);
+        if (success){
+            this.LockCancel();
+
+            this.spineligible = false;
+            this.minieligible = false;
+
+            this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(shift);
+        }
+        return success
+    }
+
+    SonicDrop(){
+        if(!this.board.activepiece)
+            return 0
+
+        const dropHeight = this.DropHeight()
+        this.AttemptShift(dropHeight);
+        
+        this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(dropHeight);
+        return dropHeight.y
+    }
+
+    AttemptHadamard(other:vector2){
+        if(!this.board.activepiece)
+            return
+
+        let rotatedPiece = this.board.activepiece.copy();
+        rotatedPiece.Hadamard(other);
+
+        const fromRot = this.board.activepiece.orientiation;
+        const toRot = (rotatedPiece.orientiation + 2) % 4;
+
+        for(const shift of this.game.gameConfig.kickSystem(rotatedPiece.kickType,fromRot,toRot))
+            if(this.ValidPiece(rotatedPiece,shift)){
+                this.board.activepiece = rotatedPiece;
+                this.board.activeposition = this.board.activeposition.add(shift);
+                return true
+            }
+        
+        
+        return false
+    }
+
+    //still 90 degree clockwise turns
+    Rotate(turns:number){
+        let success = this.AttemptRotate(turns);
+
+        if(success){
+            this.LockCancel();
+            this.spineligible = this.Grounded();
+        }
+
+        const [spin,mini,immobile] = this.SpinDetection();
+        this.game.flags.justspinned = spin || mini || immobile;
+    }
+
+    Hadamard(other:vector2){
+        let success = this.AttemptHadamard(other);
+
+        if(success){
+            this.LockCancel();
+            this.spineligible = this.Grounded();
+        }
+    }
+
+    //still 90 degree clockwise turns
+    AttemptRotate(turns:number){
+        if(!this.board.activepiece)
+            return
+
+        turns = ((this.board.activepiece.orientiation + turns) % this.board.activepiece.symmetry) - this.board.activepiece.orientiation
+        turns = (turns + 4) % 4
+
+        let rotatedPiece = this.board.activepiece.rotated(turns)
+
+        const fromRot = this.board.activepiece.orientiation;
+        const toRot = rotatedPiece.orientiation;
+
+        var i = 0;
+        for(const shift of this.game.gameConfig.kickSystem(rotatedPiece.kickType,fromRot,toRot)){
+            i++;
+            if(this.ValidPiece(rotatedPiece,shift)){
+                this.board.activepiece = rotatedPiece;
+                this.board.activeposition = this.board.activeposition.add(shift);
+
+                if(i == 2)
+                    this.minieligible = true;
+                return true
+            }
+        }
+        
+        
+        return false
+    }
+
+    /**function to calculate delayed auto shift */
+    FDAS(x:number){
+        return Math.ceil(Math.max(0,(x - this.game.userConfig.das)/this.game.userConfig.arr));
+    }
+
+    EvaluateDAS(command:Command,deltaTime:number){
+        let direction = vector2.right;
+        if(command==Command.ShiftLeft)
+            direction = vector2.left;
+        
+        const zero = this.game.inputManager.Held(command);
+        const t = Date.now() - zero;
+        var deltaSteps = this.FDAS(t) - this.FDAS(t-deltaTime);
+
+        if(this.FDAS(t) === Number.POSITIVE_INFINITY)
+            deltaSteps = this.game.gameConfig.width;
+
+        if(this.Grounded()) // compensate for soft drop if it didnt do that this frame (because it was grounded)
+            if(this.game.inputManager.Held(Command.SoftDrop))
+                this.gravityelapsed += deltaTime * this.game.userConfig.sdf;
+            else
+                this.gravityelapsed += deltaTime;
+        
+        if(!isFinite(this.gravityelapsed) || isNaN(this.gravityelapsed))
+            this.gravityelapsed = this.game.gameConfig.gravity * 20
+
+        for(let i=0; i<deltaSteps; i++){
+            const success = this.Move(direction);
+            if(!success)
+                break
+            
+            if(this.game.userConfig.sdfBeforeDas)
+                this.Gravity();
+        }
+    }
+
+    /**doesnt actually choose the piece to be spawned */
+    SpawnPiece(){
+        if(!this.board.activepiece)
+            throw new Error("spawn no piece")
+
+        this.board.activeposition = this.board.piecespawnlocation;
+
+        if(this.game.gameConfig.aligntoptile){
+            var topy = 0
+            for(const i of this.board.activepiece.tiles)
+                topy = Math.max(i.y,topy)
+            this.board.activeposition = this.board.activeposition.add(new vector2(0,-topy))
+        }
+
+        if(!this.ValidShift(vector2.zero) && this.game.gameConfig.pieceSpawnMargin < 0)
+            this.game.gameOver = true;
+
+        if(this.game.gameConfig.pieceSpawnMargin >= 0){
+            if(this.game.gameConfig.spawnMarginUseLeeway)
+                while(!this.Leeway(this.game.gameConfig.pieceSpawnMargin))
+                    this.board.activeposition = this.board.activeposition.add(vector2.up);
+            else{
+                const aboveboard = this.board.matrix.GetEffectiveHeight() + this.game.gameConfig.pieceSpawnMargin
+                this.board.activeposition = new vector2(
+                    this.board.activeposition.x,
+                    Math.max(this.board.activeposition.y,aboveboard)
+                )
+            }
+        }
+
+        this.gravityelapsed = 0;
+        this.lockelapsed = 0;
+        this.lockcancelsused = 0;
+        this.spineligible = false;
+        this.minieligible = false;
+
+        this.game.flags.piecechange = true;
+    }
+    
+    SpinDetection(){
+        if (!this.board.activepiece)
+            throw new Error("spin no piece");
+        if (!this.spineligible)
+            return [false,false,false]
+
+        var immobile = true;
+
+        for(const offset of [vector2.up,vector2.down,vector2.left,vector2.right])
+            if (this.ValidShift(offset)){
+                immobile = false
+                break
+            }
+
+        var spin = false;
+        var mini = false;
+        
+        const relativeright = vector2.right.rotate(4-this.board.activepiece.orientiation);
+        const relativeup = vector2.up.rotate(4-this.board.activepiece.orientiation);
+        //im just making stuff up at this point (tspins work the same way as before but i have to extend it to work for other stuff as well)
+        var greatchecks = 0;
+        for(const offset of [vector2.up,vector2.left,vector2.right,new vector2(1,1),new vector2(-1,1)]){
+            if(!this.board.matrix.IsValid(this.board.activeposition.add(offset.orient(relativeright,relativeup)))) 
+                greatchecks++;
+        }
+        
+        var minichecks = 0;
+        for(const offset of [vector2.down,new vector2(1,-1),new vector2(-1,-1)])
+            if(!this.board.matrix.IsValid(this.board.activeposition.add(offset.orient(relativeright,relativeup)))) 
+                minichecks++;
+        
+        var lodgechecks = 0; //only for i
+        for(const offset of [vector2.up,vector2.down,new vector2(1,1),new vector2(1,-1)])
+            if(!this.board.matrix.IsValid(this.board.activeposition.add(offset.orient(relativeright,relativeup)))) 
+                lodgechecks++;
+
+        
+        switch(this.game.gameConfig.spinDetection){
+            case spinDetection.tspin:
+                if(this.board.activepiece.spinType!==SpinType.T) break
+            case spinDetection.threecorner:
+                if(greatchecks >=2 && minichecks >= 1)
+                    spin = true
+                else if(greatchecks >=1 && minichecks >= 2)
+                    mini = true
+        
+                if (!this.minieligible && mini){
+                    spin = true;
+                    mini = false;
+                }
+                break
+            case spinDetection.allmini:
+            case spinDetection.allminiandimmobile:
+                if(greatchecks >=2 && minichecks >= 1)
+                    spin = true
+                else if(greatchecks >=1 && minichecks >= 2)
+                    mini = true
+        
+                if (!this.minieligible && mini){
+                    spin = true;
+                    mini = false;
+                }
+                if(this.board.activepiece.spinType!==SpinType.T) {
+                    mini = spin
+                    spin = false
+                }
+                if(this.game.gameConfig.spinDetection===spinDetection.allminiandimmobile){
+                    mini = mini || immobile;
+                }
+                break
+            case spinDetection.sorkurzdil: //my own spin checks yippee (they kind of suck)
+                if(this.board.activepiece.spinType === SpinType.T){
+                    if(greatchecks >=2 && minichecks >= 1)
+                        spin = true
+                    else if(greatchecks >=1 && minichecks >= 2)
+                        mini = true
+                }
+                if(this.board.activepiece.spinType === SpinType.S){
+                    if(greatchecks >=2)
+                        spin = true
+                    else if(greatchecks >=1 && minichecks >= 2 && immobile)
+                        spin = true
+                    else if(greatchecks >=1 && immobile)
+                        mini = true
+                }
+                if(this.board.activepiece.spinType === SpinType.I){
+                    if(lodgechecks >= 1 && immobile)
+                        spin = true
+                    else if(immobile)
+                        mini = true
+                }
+                if (this.board.activepiece.spinType === SpinType.immobilespin){
+                    spin = immobile;
+                }
+        
+                if (!this.minieligible && mini){
+                    spin = true;
+                    mini = false;
+                }
+                break
+            case spinDetection.immobilespin:
+                spin = immobile;
+                break
+        }
+
+        return [spin, mini, immobile];
+    }
+
+    //locking
+
+    LockCancel(){
+        if (this.lockelapsed <= 0)
+            return;
+        if (this.lockcancelsused >= this.game.gameConfig.lockcancels)
+            return;
+        this.lockelapsed = 0;
+        this.lockcancelsused++;
+    }
+
+    Lock(){
+        if(!this.board.activepiece)
+            return
+
+        for (const offset of this.board.activepiece.tiles){
+            const coords = this.board.activeposition.add(offset);
+            const _tile = new tile(this.board.activepiece?.tileModel,Date.now() - this.game.gameConfig.are)
+            _tile.tileType = this.board.activepiece.tileType;
+            this.board.matrix.SetTile(coords,_tile);
+        }
+    }
+
+    LockSequence(){
+        if(!this.Noncolliding(vector2.zero) || !this.InBounds(vector2.zero))
+            return
+        if(this.game.gameConfig.verticallineclears && !this.StrictlyInBounds(vector2.zero))
+            return
+
+        const [spin, mini, immobile] = this.SpinDetection()
+
+        var runninggimmick = new gimmickReport();
+        for(const i of this.game.gameConfig.prelock){
+            const result = i(this.board,this.game)
+            runninggimmick = runninggimmick.add(result)
+        }
+        this.Lock()
+        for(const i of this.game.gameConfig.postlock){
+            const result = i(this.board,this.game)
+            runninggimmick = runninggimmick.add(result)
+        }
+        
+        for(const call of this.onLock){
+            call(spin,mini,immobile,runninggimmick)
+        }
+    }
+
+    //every frame kind of thing
+
+    Gravity(){
+        let exhaust = 0;
+
+        if(this.game.gameConfig.levelgravity)
+            this.game.gameConfig.gravity = roms.levelsGravities[Math.min(roms.levelsGravities.length-1,this.game.levels)]
+        
+        if(this.game.gameConfig.levelLocktimes)
+            this.game.gameConfig.lockTime = roms.levelsLockTimes[Math.min(roms.levelsLockTimes.length-1,this.game.levels)]
+        
+        while (this.gravityelapsed > this.game.gameConfig.gravity){
+            this.gravityelapsed -= this.game.gameConfig.gravity;
+            const success = this.AttemptShift(vector2.down);
+            if(!success)
+                break;
+
+            if(this.game.gameConfig.simplescoring === config.simpleScoringSystems.guideline && this.game.inputManager.Held(Command.SoftDrop))
+                this.game.score++;
+            
+            exhaust++;
+            if(exhaust > 3000){
+                throw new Error("your took too long");
+            }
+        }
+    }
+
+    WhileGrounded(deltaTime:number){
+        this.gravityelapsed = 0;
+
+        if(this.game.gameConfig.usegravity || (this.game.inputManager.Held(Command.SoftDrop) && !this.game.gameConfig.subzerogravity))
+            this.lockelapsed += deltaTime;
+
+        let lockTime = this.game.gameConfig.gravity
+        if(this.game.gameConfig.useLockTime)
+            lockTime = this.game.gameConfig.lockTime
+
+        if(this.lockelapsed > lockTime){
+            this.LockSequence();
+            this.lockharddropdebounce = 0;
+        }
+    }
+
+    StepSoftDrop(deltaTime:number){
+        var displacement = (this.game.userConfig.sdf - 1);
+        if(this.game.userConfig.usesdarr || !this.game.gameConfig.usegravity)
+            displacement = 1 / this.game.userConfig.sdarr * this.game.gameConfig.gravity;
+
+        console.log(displacement)
+
+        if(!isFinite(displacement) || isNaN(displacement))
+            displacement = -this.DropHeight().y * this.game.gameConfig.gravity;
+            
+        this.gravityelapsed += displacement * deltaTime;
+
+        if(this.game.gameConfig.gravity !== 0)
+            this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(vector2.down.mul(displacement / this.game.gameConfig.gravity));
+        else
+            this.game.flags.nongravitydisplacementthisframe = this.game.flags.nongravitydisplacementthisframe.add(this.DropHeight());
+    }
+
+    WhileInAir(deltaTime:number){
+        this.LockCancel();
+
+        if(this.game.gameConfig.usegravity)
+            this.gravityelapsed += deltaTime;
+        
+        if(this.game.inputManager.Held(Command.SoftDrop))
+            this.StepSoftDrop(deltaTime)
+
+        this.Gravity();
+    }
+
+    Update(deltaTime:number){
+        this.lockharddropdebounce += deltaTime;
+
+        if(this.game.inputManager.Held(Command.ShiftLeft) && !this.game.inputManager.Held(Command.ShiftRight)){
+            this.EvaluateDAS(Command.ShiftLeft,deltaTime);
+        }
+        if(!this.game.inputManager.Held(Command.ShiftLeft) && this.game.inputManager.Held(Command.ShiftRight)){
+            this.EvaluateDAS(Command.ShiftRight,deltaTime);
+        }
+
+        if(this.Grounded()){
+            this.WhileGrounded(deltaTime);
+        }else{
+            this.WhileInAir(deltaTime);
+        }
+    }
+}
