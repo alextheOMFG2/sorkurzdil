@@ -3,15 +3,16 @@ import { bagprefabs, palette, piece } from './roms.ts';
 import { game, gameManager } from './sorkurzdil.ts'
 import GameRenderer, {rendering} from './rendering.tsx';
 import React, { useRef, useEffect, RefObject, KeyboardEvent, useState, Component, ReactElement } from 'react';
-import { gameConfig, userConfig, Command, b2btype, garbagePacket, wavetype, pieceChoices, missions } from './config.ts';
+import { gameConfig, userConfig, Command, b2btype, garbagePacket, wavetype, missions, keybinds } from './config.ts';
 import { colour3 } from './basics.ts';
 import InputManager from './inputmanager.ts';
 import configs from './configprefabs.ts'
 import { kickSystems } from './rotationsystems.ts';
 import TextDisplay from './debugu.tsx'
 import { tile } from './board.ts';
-import { SpecklesGarbage } from './garbagegeneration.ts';
+import { LinesGenerator, SpecklesGarbage } from './garbagegeneration.ts';
 import { AdhereToGlue } from './gimmicks.ts';
+import { Damnation, OneBlockGarbage, StraightGarbage } from './garbagelinetypes.ts';
 
 const FPS = 120;
 
@@ -21,10 +22,17 @@ let _userConfig = new userConfig()
 _gameConfig.kickSystem = kickSystems.techmino;
 _gameConfig.debug = true;
 
-_gameConfig.backfire = 0.9
-_gameConfig.garbageChoice = new SpecklesGarbage(8)
-_gameConfig.garbageType = tile.glue
-_gameConfig.earlylock = [AdhereToGlue]
+_gameConfig.backfire = 0.5
+_gameConfig.garbageChoice = new LinesGenerator(new Damnation())
+_gameConfig.cheeseChoice = new LinesGenerator(new Damnation())
+_gameConfig.cheeselayer = 4
+_gameConfig.garbageare = 100
+_gameConfig.garbagecap = 0
+_gameConfig.piecewaitsforgarbage = true
+//_gameConfig.garbageType = tile.glue
+//_gameConfig.earlylock = [AdhereToGlue]
+
+_gameConfig.mission = missions.attack(100)
 
 //_gameConfig.pieceChoice = pieceChoices.bags(bagprefabs.tetrominosPlusGrenade)
 
@@ -90,7 +98,7 @@ const C = {
   "F1":Command.ToggleCamera,
 }
 
-_userConfig.codemappings = A;
+_userConfig.keybinds = new keybinds(A);
 
 _userConfig.strideMode = true;
 
@@ -213,7 +221,7 @@ function App() {
           StartGame(debugu,configs.master);
         }}>play normal</button>
         <button style={{transform: "translate(-30vw, -50%)"}} onClick={()=>{
-          StartGame(debugu,configs["40l"]);
+          StartGame(debugu,configs.sprint40);
         }}>play 40l</button>
         <button style={{transform: "translate(-30vw, -50%) translate(0,10vh)"}} onClick={()=>{
           StartGame(debugu,configs.warlock);

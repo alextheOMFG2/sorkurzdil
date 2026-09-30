@@ -53,7 +53,7 @@ export class vector2{
 
   normalise(){
     if(this.magnitude()<=0.0001)
-      return this.copy()
+      return clone(this)
     return this.div(this.magnitude());
   }
 
@@ -78,7 +78,7 @@ export class vector2{
 
     switch(turns){
       case 0:
-        return this.copy();
+        return clone(this);
       case 1:
         return this.cw();
       case 2:
@@ -92,10 +92,6 @@ export class vector2{
 
   rotateAngle(angle:number){
     return new vector2(this.x * Math.cos(angle) - this.y * Math.sin(angle),this.x * Math.sin(angle) + this.y * Math.cos(angle));
-  }
-
-  copy(){
-    return new vector2(this.x,this.y);
   }
 
   toString(){
@@ -282,7 +278,7 @@ export class colour3{
     let min = Math.min(this.r,this.g,this.b);
     let max = Math.max(this.r,this.g,this.b);
     if (max-min<=0)
-      return this.copy();
+      return clone(this);
     return new colour3(
       (this.r - min)/(max-min),
       (this.g - min)/(max-min),
@@ -307,10 +303,6 @@ export class colour3{
 
   static saturate(zis:colour3,t:number){
     return zis.saturate(t);
-  }
-
-  copy(){
-    return new colour3(this.r,this.g,this.b,this.a);
   }
 }
 
@@ -416,4 +408,30 @@ export function formatTimeSmall(milliseconds:number){
         text = `${minutes}:${s}.${ms}`
 
     return text
+}
+
+export function weightedRoundoff(x:number){
+  var rounddown = Math.round(x)
+  if(Math.random() < (x - rounddown)){
+    return rounddown + 1
+  }
+  return rounddown
+}
+
+/**thanks stack overflow */
+export function clone <T> (instance: T, levels = Infinity): T {
+  const cloneInstance = Array.isArray(instance)
+    ? Object.assign([], instance)
+    : Object.assign(Object.create(Object.getPrototypeOf(instance)), instance)
+
+  if (levels > 0) {
+    for (const key in cloneInstance) {
+      if (Object.prototype.hasOwnProperty.call(cloneInstance, key)) {
+        if (typeof cloneInstance[key] === 'object') {
+          cloneInstance[key] = clone(cloneInstance[key], levels - 1)
+        }
+      }
+    }
+  }
+  return cloneInstance
 }

@@ -7,7 +7,7 @@ known bugs
 - lag happens every now and then and i dont know why
 - if you dont reset the input manager sometimes theres no activepiece for some reason (and rotating throws an error) even though rotating is okay
 - every now and then for no reason some number becomes nan and it looked ugly so when that happens i made the game crash
-- when are becomes negative renderer doesnt really know how to deal with it (to solve this just keep track of the starting are every lock)
+- i dont know how the weird garbage variants would interact with the systems i put in place for normal garbage, like counting of lines of garbage and dig and whatnot
 
 halfway done
 - level select

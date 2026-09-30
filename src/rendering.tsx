@@ -9,9 +9,6 @@ import particleManager, { curve, rectParticle, textParticle } from './particlema
 import React, { createElement, ReactElement, RefObject, useImperativeHandle, useRef, useState } from 'react';
 import { clearNames } from './roms.ts';
 
-var imagesCache:{[key:string]:HTMLImageElement} = {};
-var loading:{[key:string]:boolean} = {};
-
 function FDecay(x:number){
     return 1 - Math.exp(-x/32);
 }
@@ -91,7 +88,7 @@ export class rendering {
     DrawPieceCompensate(piece:piece,screenpos:vector2,_tileModel:tileModel,tilesize=this.tilesize){
         const compensation = compensations[simplifyKickType(piece.kickType)].flip();
         this.matrixRenderer.ctx = this.ctx;
-        this.matrixRenderer.DrawPiece(piece,screenpos.add(flipy(this.FSTL(compensation))),_tileModel,false,false,false,tilesize);
+        this.matrixRenderer.DrawPiece(piece,screenpos.add(flipy(this.FSTL(compensation))),_tileModel,false,false,true,tilesize);
     }
 
     DrawQueue(){

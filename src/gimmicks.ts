@@ -13,12 +13,6 @@ export class gimmickReport{
         this.attack = (attack===undefined)?0:attack
     }
 
-    copy(){
-        const robot = new gimmickReport(this.score,this.lines,this.attack)
-        robot.lock = this.lock
-        return robot;
-    }
-
     add(other:gimmickReport){
         const robot = new gimmickReport(this.score + other.score,this.lines + other.lines,this.attack + other.attack)
         robot.lock = this.lock || other.lock

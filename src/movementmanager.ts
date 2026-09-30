@@ -1,4 +1,4 @@
-import { colour3, vector2 } from "./basics.ts"
+import { clone, colour3, vector2 } from "./basics.ts"
 import { board, tile, tileType } from "./board.ts";
 import { Command, gameConfig, simpleScoringSystems, spinDetection, userConfig } from "./config.ts";
 import { gimmickReport } from "./gimmicks.ts";
@@ -58,7 +58,7 @@ export default class MovementManager{
                 case Command.SonicDrop:
                     var drop = this.SonicDrop();
                     if(this.game.gameConfig.simplescoring === simpleScoringSystems.guideline)
-                        this.game.score += Math.floor(-drop * 1.5);
+                        this.game.score += Math.floor(drop * 1.5);
                     break;
                 case Command.AirLock:
                     if(!this.game.gameConfig.allowAirLock) break
@@ -69,9 +69,9 @@ export default class MovementManager{
                 case Command.HardDrop:
                     if(!this.game.gameConfig.allowHardDrop) break
                     if(this.lockharddropdebounce < this.game.userConfig.lockharddropdebounce) break
-                    var drop = this.SonicDrop();
+                    var drop = this.SonicDrop(true);
                     if(this.game.gameConfig.simplescoring === simpleScoringSystems.guideline)
-                        this.game.score += -drop * 2;
+                        this.game.score += drop * 2;
                     this.Lock();
                     break;
                 case Command.RotNull:
@@ -229,7 +229,7 @@ export default class MovementManager{
         return dropHeight.y
     }*/ //waa goodbye elegant sonic drop i need to add gimmicks
 
-    SonicDrop(){
+    SonicDrop(lockintent=false){
         if(!this.board.activepiece)
             return 0
 
@@ -239,7 +239,7 @@ export default class MovementManager{
             const earlylock = this.EvaluateEarlyLockGimmicks()
             if(!success) break
             if(earlylock){
-                this.Lock(true);
+                this.Lock(this.ValidShift(vector2.down) || !lockintent);
                 break
             }
             dropHeight += 1
@@ -253,7 +253,7 @@ export default class MovementManager{
         if(!this.board.activepiece)
             return
 
-        let rotatedPiece = this.board.activepiece.copy();
+        let rotatedPiece = clone(this.board.activepiece);
         rotatedPiece.Hadamard(other);
 
         const fromRot = this.board.activepiece.orientiation;
@@ -280,10 +280,12 @@ export default class MovementManager{
         if(success){
             this.LockCancel();
             this.spineligible = this.Grounded();
-        }
 
-        const [spin,mini,immobile] = this.SpinDetection();
-        this.game.flags.justspinned = spin || mini || immobile;
+            const [spin,mini,immobile] = this.SpinDetection();
+            this.game.flags.justspinned = spin || mini || immobile;
+
+            this.EarlyLock();
+        }
     }
 
     Hadamard(other:vector2){
@@ -292,6 +294,11 @@ export default class MovementManager{
         if(success){
             this.LockCancel();
             this.spineligible = this.Grounded();
+
+            const [spin,mini,immobile] = this.SpinDetection();
+            this.game.flags.justspinned = spin || mini || immobile;
+            
+            this.EarlyLock();
         }
     }
 
@@ -590,9 +597,9 @@ export default class MovementManager{
         return false
     }
 
-    EarlyLock(){
+    EarlyLock(earlylock=true){
         if(this.EvaluateEarlyLockGimmicks())
-            this.Lock(true)
+            this.Lock(earlylock)
     }
 
     //every frame kind of thing

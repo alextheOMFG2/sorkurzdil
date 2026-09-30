@@ -1,121 +1,13 @@
 import { bagprefabs, piece, tileModel } from './roms.ts'
-import { formatTime, formatTimeSmall, modular, Randomiser, vector2 } from './basics.ts'
+import { clone, formatTime, formatTimeSmall, modular, Randomiser, vector2, weightedRoundoff } from './basics.ts'
 import { board, tile, tileType } from './board.ts';
 import rs, { kickSystems, kickType, simplifyKickType } from './rotationsystems.ts';
 import { game } from './sorkurzdil.ts';
 import { ExplodeGrenades, gimmick, MarkBombClears } from './gimmicks.ts';
 import { tileModels } from './roms.ts';
-import { BaseGarbageGenerator, garbageGeneratorInitiator, garbageType, LinesGenerator } from './garbagegeneration.ts';
-
-function HashBag(bagprefab:piece[]){
-    var o = "";
-    for(const _piece of bagprefab){
-        o += "."
-        for(const tile of _piece.tiles){
-            o += tile.toString();
-        }
-    }
-
-    return o;
-}
-
-type pieceGenerator = {
-    generator:()=>Generator<piece,never,unknown>,
-    baghash:string
-}
-
-export const pieceChoices:Readonly<{[key:string]:((bagprefab:piece[])=>pieceGenerator)}>= Object.freeze({
-    "bags":function(bagprefab:piece[],seed?:number){
-        seed = seed || new Date().getTime();
-        let randomiser = new Randomiser(seed);
-        return {
-            generator:function*(){
-            while(true){
-                let workingbag:piece[] = [];
-                for(const _piece of bagprefab)
-                    workingbag.push(_piece);
-                while(workingbag.length > 0){
-                    const i = Math.floor(randomiser.next() * workingbag.length);
-                    yield workingbag.splice(i,1)[0]
-                }
-            }
-        },
-            baghash:HashBag(bagprefab),
-        }
-    },
-    "sequence":function(bagprefab:piece[],_seed?:number){
-        return {
-            generator:function*(){
-            while(true){
-                let workingbag:piece[] = [];
-                for(const _piece of bagprefab)
-                    workingbag.push(_piece);
-                while(workingbag.length > 0){
-                    yield workingbag.splice(0,1)[0]
-                }
-            }
-        },
-            baghash:HashBag(bagprefab),
-        }
-    },
-    "bags1bomb":function(bagprefab:piece[],seed?:number){
-        seed = seed || new Date().getTime();
-        let randomiser = new Randomiser(seed);
-        return {
-            generator:function*(){
-            while(true){
-                let workingbag:piece[] = [];
-                for(const _piece of bagprefab)
-                    workingbag.push(_piece);
-                let bomb = Math.floor(randomiser.next() * workingbag.length);
-                workingbag[bomb] = workingbag[bomb].withGimmick(tileType.grenade).withModel(tileModels.grenade)
-                while(workingbag.length > 0){
-                    const i = Math.floor(randomiser.next() * workingbag.length);
-                    yield workingbag.splice(i,1)[0]
-                }
-            }
-        },
-            baghash:HashBag(bagprefab),
-        }
-    },
-    "random":function(bagprefab:piece[],seed?:number){
-        seed = seed || new Date().getTime();
-        let randomiser = new Randomiser(seed);
-        return {
-            generator:function*(){
-            while(true){
-                const i = Math.floor(randomiser.next() * bagprefab.length);
-                yield bagprefab[i]
-            }
-        },
-            baghash:HashBag(bagprefab),
-        }
-    },
-})
-
-export enum levelling{
-    none,
-    nes,
-    zenithtower,
-    theemperor,
-}
-
-export enum b2btype{
-    none,
-    lenient,
-    b2b,
-    tspin,
-    tech,
-}
-
-export enum spinDetection{
-    tspin,
-    threecorner,
-    allmini,
-    allminiandimmobile,
-    immobilespin,
-    sorkurzdil,
-}
+import { BaseGarbageGenerator, LinesGenerator } from './garbagegeneration.ts';
+import { garbageType } from './garbagelinetypes.ts';
+import { BasePieceGenerator } from './piecechoice.ts';
 
 export type simplescoring = (_game:game,piecejustplaced:piece,lines:number,spin:boolean,mini:boolean,immobile:boolean,pc:boolean)=>number;
 
@@ -193,14 +85,6 @@ export const attackingSystems = Object.freeze({
     }
 })
 
-export enum wavetype{
-    none, //none
-    ontimer, //garbage Only spawns on timer
-    skippable, //garbage spawns on timer or when theres no more garbage left in the queue, whichever is faster
-    onexhaust, //garbage only spawn when theres no garbage left in the queue
-    onclear, //garbage only spawns when theres little garbage on the board and in the queue combined
-}
-
 export class garbagePacket{
     lines=1;
     maxlines=1;
@@ -211,10 +95,6 @@ export class garbagePacket{
     constructor(lines:number){
         this.lines = lines;
         this.maxlines = lines;
-    }
-
-    copy(){
-        return new garbagePacket(this.lines);
     }
 }
 
@@ -402,12 +282,52 @@ export const constraints = Object.freeze({
     },
 })
 
+export enum wavetype{
+    none, //none
+    ontimer, //garbage Only spawns on timer
+    skippable, //garbage spawns on timer or when theres no more garbage left in the queue, whichever is faster
+    onexhaust, //garbage only spawn when theres no garbage left in the queue
+    onclear, //garbage only spawns when theres little garbage on the board and in the queue combined
+}
+
+export enum levelling{
+    none,
+    nes,
+    zenithtower,
+    theemperor,
+}
+
+export enum b2btype{
+    none,
+    lenient,
+    b2b,
+    tspin,
+    tech,
+}
+
+export enum spinDetection{
+    tspin,
+    threecorner,
+    allmini,
+    allminiandimmobile,
+    immobilespin,
+    sorkurzdil,
+}
+
+export type roundingType = (x:number)=>number;
+export const roundingTypes:{[key:string]:(x:number)=>number} = Object.freeze({
+    rounddown:Math.floor,
+    roundup:Math.ceil,
+    roundoff:Math.round,
+    weighted:weightedRoundoff,
+})
+
 export class gameConfig{
     width=10;
     height=20;
 
     kickSystem=kickSystems.SRS;
-    pieceChoice=pieceChoices.bags(bagprefabs.tetrominos);
+    pieceChoice=new BasePieceGenerator(bagprefabs.tetrominos);
     queuesize = 5;
     holdsize = 1;
     holds = 1;
@@ -431,6 +351,7 @@ export class gameConfig{
     levelscore = true;
     attacking:attackingSystem = attackingSystems.guideline;
     spinDetection:spinDetection = spinDetection.sorkurzdil;
+    roundingtype:roundingType=roundingTypes.rounddown;
 
     scoreDisplayType:scoreDisplayType = scoreDisplays.default;
     mission:missionType|undefined;
@@ -504,7 +425,8 @@ export class gameConfig{
     clutching = true; // clearing a line makes you unable to die when the next piece spawns
 
     comboBlocking = true;
-    attackCancelling = true; //unimplemented
+    attackCancelling = true;
+    piecewaitsforgarbage = false;
 
     //functions to pass the board through before and after locks
     prelock:gimmick[] = [MarkBombClears];
@@ -536,7 +458,8 @@ export class gameConfig{
      * 
      * other nondefault overrides this nondefault unless this nondefault is marked as strong
      */
-    Splice(other:gameConfig){
+    Splice(rawother:gameConfig){
+        const other = clone(rawother)
         const judge = new gameConfig();
         Object.keys(other).forEach(e =>{
             if(e=="strongproperties")return;
@@ -547,7 +470,7 @@ export class gameConfig{
             }
 
             if(e == "pieceChoice"){
-                if(other[e].generator.toString() != judge[e].generator.toString() || other[e].baghash != judge[e].baghash)
+                if(other[e].constructor != judge[e].constructor || other[e].baghash != judge[e].baghash)
                     this[e] = other[e];
             }
             else if(other[e]){
@@ -574,12 +497,6 @@ export class gameConfig{
         if (!this.hasOwnProperty(prop))
             throw new Error("dont strengthen a nonproperty")
         this.strongproperties.push(prop);
-    }
-
-    copy(){
-        const robot = new gameConfig()
-        robot.Splice(this)
-        return robot;
     }
 }
 
@@ -678,26 +595,7 @@ export class userConfig{
 
     cameraMode=cameraMode.focusActive;
 
-    codemappings:{[key:string]:Command}={
-        "ArrowLeft":Command.ShiftLeft,
-        "ArrowRight":Command.ShiftRight,
-        "ArrowUp":Command.RotCW,
-        "ArrowDown":Command.SoftDrop,
-        "Space":Command.HardDrop,
-        "KeyC":Command.Hold,
-        "ShiftLeft":Command.Hold,
-        "KeyZ":Command.RotWS,
-        "ControlLeft":Command.RotWS,
-        "KeyA":Command.Rot180,
-        "Digit1":Command.SonicDrop,
-        "Digit2":Command.AirLock,
-        "Digit3":Command.RotNull,
-        "ControlRight":Command.ShiftDown,
-        "KeyW":Command.HoriFlip,
-        "KeyD":Command.VertFlip,
-        "KeyS":Command.Discard,
-        "F1":Command.ToggleCamera,
-    };
+    keybinds = new keybinds();
 
     sdfBeforeDas = true;
 }

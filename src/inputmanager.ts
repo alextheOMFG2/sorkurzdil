@@ -14,9 +14,9 @@ export default class InputManager{
     OnKeyDown(e: KeyboardEvent){
         console.log(e.code);
 
-        if(this.userConfig.codemappings[e.code] === undefined)
+        if(this.userConfig.keybinds.codemappings[e.code] === undefined)
             return
-        const command = this.userConfig.codemappings[e.code];
+        const command = this.userConfig.keybinds.codemappings[e.code];
 
         e.preventDefault()
 
@@ -36,9 +36,9 @@ export default class InputManager{
     }
 
     OnKeyUp(e: KeyboardEvent){
-        if(this.userConfig.codemappings[e.code] === undefined)
+        if(this.userConfig.keybinds.codemappings[e.code] === undefined)
             return
-        const command = this.userConfig.codemappings[e.code];
+        const command = this.userConfig.keybinds.codemappings[e.code];
 
         e.preventDefault()
 

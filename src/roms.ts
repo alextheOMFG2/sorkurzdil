@@ -1,5 +1,4 @@
-import { colour3, vector2 } from './basics.ts'
-import krux from './krexkd.png'
+import { clone, colour3, vector2 } from './basics.ts'
 import { kickType, simpleKickType, SpinType, symmetry } from './rotationsystems.ts';
 import { tileType } from './board.ts';
 
@@ -116,16 +115,8 @@ export class filledRectangle{
     }
   }
 
-  copy(){
-    if(this.colourpossibility!==undefined)
-      return new filledRectangle(this.position,this.size,this.colourpossibility);
-    if(this.colour)
-      return new filledRectangle(this.position,this.size,this.colour.copy());
-    throw new Error("null colour");
-  }
-
   frozen(){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.colour = this.evaluateColour();
     robot.colourpossibility = undefined;
     return robot;
@@ -149,10 +140,6 @@ export class imageRectangle{
     this.position = position;
     this.size = size;
     this.image = image;
-  }
-
-  copy(){
-    return new imageRectangle(this.position.copy(),this.size.copy(),this.image)
   }
 }
 
@@ -240,18 +227,8 @@ export class tileModel{
     return robot
   }
 
-  copy(){
-    let robot = new tileModel();
-    for(const rect of this.rectangles)
-      robot.rectangles.push(rect.copy());
-    for(const rect of this.images)
-      robot.images.push(rect.copy());
-    robot.isNull = this.isNull;
-
-    return robot;
-  }
   colourOperation(op:(zis:colour3,...a:any[]) => colour3,...opargs:any[]){
-    let robot = this.copy();
+    let robot = clone(this);
     for(const rect of robot.rectangles){
       rect.colour = op(rect.evaluateColour(),...opargs);
       rect.colourpossibility = undefined;
@@ -268,7 +245,7 @@ export class tileModel{
   }
 
   withOpacity(opacity:number){
-    const robot = this.copy()
+    const robot = clone(this)
     for(const rect of robot.rectangles){
       let col = rect.evaluateColour();
       col.a *= opacity;
@@ -282,7 +259,7 @@ export class tileModel{
   }
 
   doNotGrey(){
-    const robot = this.copy()
+    const robot = clone(this)
     robot.grey = false
     return robot;
   }
@@ -356,17 +333,6 @@ export class piece{
     this.spinType = spinType || SpinType.immobilespin;
   }
 
-  copy(){
-    let newtiles:vector2[] = [];
-    for(let i=0; i<this.tiles.length; i++)
-      newtiles[i] = this.tiles[i].copy();
-    let robot = new piece(newtiles,this.tileModel,this.kickType,this.name,this.spinType);
-    robot.orientiation = this.orientiation;
-    robot.tileType = this.tileType;
-    robot.symmetry = this.symmetry;
-    return robot;
-  }
-
   Rotate(rotation:number){
     for(let i=0; i<this.tiles.length; i++){
       this.tiles[i] = this.tiles[i].rotate(rotation)
@@ -375,7 +341,7 @@ export class piece{
   }
 
   rotated(rotation:number){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.Rotate(rotation);
     return robot;
   }
@@ -395,7 +361,7 @@ export class piece{
   }
 
   shifted(offset:vector2){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.Shift(offset);
     return robot;
   }
@@ -418,38 +384,38 @@ export class piece{
   }
 
   withModel(_tileModel:tileModel){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.tileModel = _tileModel;
     return robot;
   }
 
   withRotationCleared(){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.orientiation = orientiation.north;
     robot.chirality = vector2.one;
     return robot;
   }
 
   withGimmick(gimmick:tileType){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.tileType = gimmick;
     return robot;
   }
 
   withName(name:string){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.name = name;
     return robot;
   }
 
   withSymmetry(_symmetry:symmetry){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.symmetry = _symmetry;
     return robot;
   }
 
   withKickType(_kickType:kickType){
-    let robot = this.copy();
+    let robot = clone(this);
     robot.kickType = _kickType;
     return robot;
   }

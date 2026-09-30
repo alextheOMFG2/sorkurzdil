@@ -194,7 +194,7 @@ export default class MatrixRendering {
 
         if (_tile.death){
             const deadFor = Date.now() - _tile.death;
-            _tileModel = _tileModel.withOpacity(1 - Math.min(1,deadFor / (this.game.gameConfig.lineclearare + this.game.gameConfig.linecleartime)));
+            _tileModel = _tileModel.withOpacity(1 - Math.min(1,deadFor / (this.game.gameConfig.lineclearare + this.game.gameConfig.linecleartime - (this.gameManager.lineclearare ? this.gameManager.initialare : 0))));
         }
 
         this.DrawSquare(_tileModel,screenpos,true,bypassboardoffset);
@@ -471,6 +471,7 @@ export default class MatrixRendering {
             //keep piece on screen
             switch(this.game.userConfig.cameraMode){
                 case cameraMode.focusActive:{
+                    if(!this.board.activepiece) break
                     let trackpos = this.ActivePieceDrawnPosition();
                     let top = Math.max(trackpos.y - this.board.piecespawnlocation.y / 2,0);
                     let bottom = trackpos.y - this.board.piecespawnlocation.y - 1;
