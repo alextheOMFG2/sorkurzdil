@@ -29,8 +29,17 @@ export class tile{
     this.birth = birth;
   }
 
+  born(){
+    this.birth = Date.now()
+  }
+
   static garbage(){
     const robot = new tile(tileModels.garbage)
+    return robot
+  }
+
+  static garbage1(){
+    const robot = new tile(tileModels.garbage1)
     return robot
   }
 

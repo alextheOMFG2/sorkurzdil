@@ -118,7 +118,7 @@ export default class particleManager{
             )
         }
         if(_particle instanceof textParticle){
-            ctx.font = "1px Arial";
+            ctx.font = "1px Bytesized";
             ctx.textAlign = "center"
             var stylecolour = SafeColour(_particle.style)
             ctx.fillStyle = stylecolour.toHex();

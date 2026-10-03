@@ -67,15 +67,9 @@ export class rendering {
         return new vector2(x.x * this.boardtilesize.x,x.y * this.boardtilesize.y);
     }
 
-    drawnMatrix(){
-        const drawnMatrixWidth = this.gameManager.board.matrix.width
-        const drawnMatrixHeight = this.gameManager.board.matrix.height
-        return this.bFSTL(new vector2(drawnMatrixWidth,drawnMatrixHeight));
-    }
-
     /*input screenpos is the center of the matrix*/
     CoordsToScreenPos(coords:vector2){
-        const _drawnMatrix = this.drawnMatrix();
+        const _drawnMatrix = this.matrixRenderer.drawnMatrix();
         
         const originX = - (_drawnMatrix.x - this.boardtilesize.x) / 2,originY = + (_drawnMatrix.y - this.boardtilesize.y) / 2
         
@@ -92,7 +86,7 @@ export class rendering {
     }
 
     DrawQueue(){
-        const _drawnMatrix = this.drawnMatrix();
+        const _drawnMatrix = this.matrixRenderer.drawnMatrix();
         const toprightX = (_drawnMatrix.x - this.boardtilesize.x) / 2,toprightY = -(_drawnMatrix.y - this.boardtilesize.y) / 2
         const topright = new vector2(toprightX,toprightY);
 
@@ -100,7 +94,7 @@ export class rendering {
             const queuePiece = this.gameManager.queue[i];
             var useModel = queuePiece.tileModel;
             if(this.game.gameOver)
-            useModel = new tileModel(palette.garbage);
+                useModel = useModel.coloured(palette.one);
 
             this.DrawPieceCompensate(queuePiece,
                 topright.add(this.FSTL(new vector2(3 + i * 4.5,1))),
@@ -110,7 +104,7 @@ export class rendering {
     }
 
     DrawHold(){
-        const _drawnMatrix = this.drawnMatrix();
+        const _drawnMatrix = this.matrixRenderer.drawnMatrix();
         const topleftX = - (_drawnMatrix.x - this.tilesize.x) / 2,topleftY = - (_drawnMatrix.y - this.tilesize.y) / 2
         const topleft = new vector2(topleftX,topleftY);
 
@@ -118,7 +112,7 @@ export class rendering {
             const queuePiece = this.gameManager.hold[i];
             var useModel = queuePiece.tileModel;
             if((this.gameManager.holdsused >= this.game.gameConfig.holds && !this.game.gameConfig.infinitehold) || this.game.gameOver)
-            useModel = new tileModel(palette.garbage);
+                useModel = useModel.coloured(palette.one);
             
             this.DrawPieceCompensate(queuePiece,
             topleft.add(this.FSTL(new vector2(-3 - i * 4.5,1))),
@@ -133,7 +127,7 @@ export class rendering {
 
         var colouroverride:string|null = null;
         if(lines == 12)
-            colouroverride = "#faad1f"
+            colouroverride = "#0000ff"
         if(lines > 12 && lines < 20){
             if(Date.now() % 128 < 64)
                 colouroverride = "#00ffff";
@@ -158,18 +152,18 @@ export class rendering {
 
         if(!somspin){
             if(this.game.gameConfig.warlockwounds > 0)
-                return ["void",palette.black.toHex()]
+                return ["void",palette.one.toHex()]
 
             if(lines === 4){
-                return [clearname,palette.I.toHex()];
+                return [clearname,palette.two.toHex()];
             }
             if(lines === 5){
-                return [clearname,palette.O.toHex()];
+                return [clearname,palette.tri.toHex()];
             }
             if(lines > 5 && lines <= 11){
                 return [clearname,colour3.fromHSV(Date.now()/ 1000,1,1).toHex()];
             }
-            return [clearname,colouroverride||palette.dark.toHex()];
+            return [clearname,colouroverride||palette.one.toHex()];
         }
 
         if(lines > 1)
@@ -186,14 +180,14 @@ export class rendering {
                 + ((spin || mini) ? " spin " : " ")
                 + clearNames[Math.min(lines,clearNames.length)]
                 + ((immobile && !spin && !mini) ? " immobile" : "")), 
-                colouroverride||palette.light.toHex()];
+                colouroverride||palette.one.toHex()];
 
         return [(((mini && !spin) ? "mini " : "")
             + piecejustplaced.name
             + ((spin || mini) ? " spin " : " ")
             + clearNames[Math.min(lines,clearNames.length)]
             + ((immobile && !spin && !mini) ? " immobile" : "")), 
-            colouroverride||palette.light.toHex()];
+            colouroverride||palette.one.toHex()];
     }
 
     lineclearalertexpiretime = 3000
@@ -201,7 +195,7 @@ export class rendering {
     breakalertexpiretime = 2000
 
     DrawLineClearAlert(_alert:lineclearalert){
-        const _drawnMatrix = this.drawnMatrix();
+        const _drawnMatrix = this.matrixRenderer.drawnMatrix();
 
             const age = Date.now() - _alert.time;
 
@@ -216,7 +210,7 @@ export class rendering {
                 t = 0;
             this.ctx.globalAlpha = (1 - t)**2
             this.ctx.fillStyle = lineclearcolour;
-            this.ctx.font = "64px Arial";
+            this.ctx.font = "64px Bytesized";
             this.ctx.letterSpacing = ((1 - (t - 1)**2) * 32) + "px"
             this.ctx.textAlign = "end"; 
             this.ctx.fillText(
@@ -241,7 +235,7 @@ export class rendering {
             const megacomb = (_alert.combo >= 20) ? 8 : 0
 
             this.ctx.globalAlpha = (1 - t2)**4
-            this.ctx.font = (32 + _alert.combo * 4 + bignumber + megacomb) + "px Arial";
+            this.ctx.font = (32 + _alert.combo * 4 + bignumber + megacomb) + "px Bytesized";
             this.ctx.letterSpacing = ((1 - (t2 - 1)**2) * 8) + "px"
             this.ctx.textAlign = "end"; 
             this.ctx.fillText(
@@ -264,7 +258,7 @@ export class rendering {
                 this.ctx.fillStyle = palette.great1.toHex();
             else
                 this.ctx.fillStyle = palette.great2.toHex();
-            this.ctx.font = "bold 128px Arial";
+            this.ctx.font = "bold 128px Bytesized";
             this.ctx.fillText("MEGACMB",0,0);
         }
 
@@ -324,42 +318,42 @@ export class rendering {
             this.ctx.fillStyle = this.magiccolour.lerp(colour3.fromHSV(1,0,1),FDecay(t/40)).toHex();
             this.ctx.globalAlpha = Math.sin(tee/3000)**2 / 2 + 0.5;
             
-            this.ctx.font = (101 + Math.log(this.game.b2b)) + "px Arial";
+            this.ctx.font = (101 + Math.log(this.game.b2b)) + "px Bytesized";
         }
         else if(this.game.b2b >= 2545){
             const tee = Date.now() / 1000
             const x = (Math.sin(tee * Math.E)**2 + Math.sin(tee * Math.PI)**2 + Math.sin(tee)**2);
             this.ctx.fillStyle = colour3.fromHSV(1,0,x % 1).toHex();
-            this.ctx.font = (85 + 2 * Math.log(this.game.b2b)) + "px Arial";
+            this.ctx.font = (85 + 2 * Math.log(this.game.b2b)) + "px Bytesized";
         }
         else if(this.game.b2b >= 256){
             if(Date.now() % 128 < 64)
                 this.ctx.fillStyle = palette.great1.toHex();
             else
                 this.ctx.fillStyle = palette.great2.toHex();
-            this.ctx.font = (70 + (this.game.b2b**0.5)/2) + "px Arial";
+            this.ctx.font = (70 + (this.game.b2b**0.5)/2) + "px Bytesized";
         }
         else if(this.game.b2b >= 50){
             this.ctx.fillStyle = colour3.fromHSV(Date.now()/ 1000,1,1).toHex();
-            this.ctx.font = (58 + this.game.b2b**0.5) + "px Arial";
+            this.ctx.font = (58 + this.game.b2b**0.5) + "px Bytesized";
         }
         else if(this.game.b2b >= 16){
             const tee = Date.now() / 1000
             const x = Math.sin(tee)*2;
             this.ctx.fillStyle = new colour3(1,0,1).lerp(new colour3(0,0,1),x).toHex();
-            this.ctx.font = (48 + this.game.b2b/4) + "px Arial";
+            this.ctx.font = (48 + this.game.b2b/4) + "px Bytesized";
         }
         else if(this.game.b2b >= 4){
-            this.ctx.fillStyle = palette.I.toHex();
-            this.ctx.font = (32 + this.game.b2b) + "px Arial";
+            this.ctx.fillStyle = palette.two.toHex();
+            this.ctx.font = (32 + this.game.b2b) + "px Bytesized";
         }else{
-            this.ctx.fillStyle = palette.black.toHex();
-            this.ctx.font = "32px Arial";
+            this.ctx.fillStyle = palette.one.toHex();
+            this.ctx.font = "32px Bytesized";
         }
     }
 
     DrawAlerts(){ //these have to be rewritten more beautifully why is it so copypaste d.r.y
-        const _drawnMatrix = this.drawnMatrix();
+        const _drawnMatrix = this.matrixRenderer.drawnMatrix();
 
         if(this.game.userConfig.alwayskeeplastlineclear||this.game.gameConfig.keeplastlineclear){
             var lastlineclear;
@@ -442,11 +436,11 @@ export class rendering {
 
                 if(this.game.lines < 4){
                     text = "trivial pc"
-                    colour = palette.light
+                    colour = palette.one
                     great = false
                 }else if(this.game.lines <= 8){
                     text = "opener pc"
-                    colour = palette.great2
+                    colour = palette.two
                     great = false
                 }
 
@@ -470,9 +464,9 @@ export class rendering {
 
                 const t = age/this.breakalertexpiretime
                 this.ctx.globalAlpha = (1 - t)**2
-                this.ctx.fillStyle = palette.dark.toHex();
+                this.ctx.fillStyle = palette.one.toHex();
                 let fontsize = (32 + _alert.info * 4 + bignumber + megacomb)
-                this.ctx.font = fontsize + "px Arial";
+                this.ctx.font = fontsize + "px Bytesized";
                 this.ctx.letterSpacing = ((1 - (t - 1)**2) * 256) + "px"
                 this.ctx.textAlign = "center"; 
                 
@@ -514,7 +508,7 @@ export class rendering {
                     fontsize = 32 + _alert.info;
                 
 
-                this.ctx.font = (10 * age / 1000 + fontsize) + "px Arial";
+                this.ctx.font = (10 * age / 1000 + fontsize) + "px Bytesized";
                 
                 this.ctx.globalAlpha *= (1 - teez) **2;
 
@@ -548,12 +542,12 @@ export class rendering {
 
         const scoring = _scoreDisplay(this.game)
 
-        this.ctx.fillStyle = palette.black.toHex();
-        this.ctx.font = "100px Arial";
+        this.ctx.fillStyle = palette.one.toHex();
+        this.ctx.font = "100px Bytesized";
         this.ctx.textAlign = "center"; 
         this.ctx.fillText(scoring.text,screenpos.x - 150,screenpos.y);
 
-        this.ctx.font = "32px Arial";
+        this.ctx.font = "32px Bytesized";
         this.ctx.fillText(scoring.name,screenpos.x - 150,screenpos.y-120);
 
         this.ctx.fillRect(
@@ -567,16 +561,16 @@ export class rendering {
     DrawDisplay(text:string,screenpos:vector2){
         this.ctx.globalAlpha = 1
 
-        this.ctx.font = "50px Arial";
+        this.ctx.font = "50px Bytesized";
         this.ctx.textAlign = "end"; 
         this.ctx.fillText(text,screenpos.x - 32,screenpos.y);
     }
 
     DrawInfo(){
-        const _drawnMatrix = this.drawnMatrix();
+        const _drawnMatrix = this.matrixRenderer.drawnMatrix();
         const leftX = -_drawnMatrix.x / 2, bottomY = _drawnMatrix.y / 2
         
-        this.ctx.fillStyle = palette.black.toHex();
+        this.ctx.fillStyle = palette.one.toHex();
 
         this.DrawScoreDisplay(this.game.gameConfig.scoreDisplayType,new vector2(leftX,0));
         this.DrawDisplay(formatTime(this.game.time),new vector2(leftX,bottomY-8))
@@ -597,7 +591,7 @@ export class rendering {
         this.DrawInfo();
     }
 
-    stupidparticlething(){
+    /*stupidparticlething(){
         if(Math.random() < 1){
             const particle = new rectParticle(vector2.zero,vector2.one,colour3.fromHSV(Math.random(),1,1))
             particle.rotation = Math.random() * Math.PI * 2
@@ -610,11 +604,11 @@ export class rendering {
             particle.lifespan = 1000 + Math.random() * 1500
             this.particleManager.particles.push(particle)
         }
-    }
+    }*/
 
     particletimer = 0;
 
-    stupidparticlething2(){
+    /*stupidparticlething2(){
         const particle = new textParticle("blah",colour3.fromHSV(Math.random(),1,1))
         //particle.rotation = Math.random() * Math.PI * 2
         particle.position = new vector2(-this.drawnMatrix().x/2 + Math.random() * this.drawnMatrix().x,-this.drawnMatrix().y/2 + Math.random() * this.drawnMatrix().y)
@@ -625,7 +619,7 @@ export class rendering {
         particle.opacity = new curve(1,0,(x:number)=>(1-(1-x)**2))
         particle.lifespan = 1000 + Math.random() * 1500
         this.particleManager.particles.push(particle)
-    }
+    }*/
 
     RenderStep(deltaTime:number,dynamicText:ReactElement[]){
         const centerX = this.uiCanvas.width/2,centerY = this.uiCanvas.height/2;
@@ -647,11 +641,11 @@ export class rendering {
         this.ctx.translate(centerX,centerY);
         this.DrawUI()
 
-        this.particletimer += deltaTime
+        /*this.particletimer += deltaTime
         while(this.particletimer > 1000/120){
             this.particletimer -= 1000/120
             //this.stupidparticlething2()
-        }
+        }*/
 
         this.particleManager.Update(deltaTime);
         this.particleManager.DrawParticles(this.ctx);

@@ -29,9 +29,18 @@ export default class MatrixRendering {
     boardtilesize:vector2;
     tilesize:vector2;
 
+    get gridwidth(){
+        return this.tilesize.div(6);
+    };
+    framewidth:vector2=new vector2(8,8);
+
     /**function to scale vector by tile lengths*/
     FSTL(x:vector2,tilesize=this.boardtilesize){
-        return new vector2(x.x * tilesize.x,x.y * tilesize.y);
+        return x.hadamard(tilesize);
+    }
+
+    FSTL2(x:vector2,tilesize=this.boardtilesize){
+        return x.hadamard(tilesize.add(this.gridwidth));
     }
 
     //configuration
@@ -51,7 +60,11 @@ export default class MatrixRendering {
     drawnMatrix(){
         const drawnMatrixWidth = this.board.matrix.width
         const drawnMatrixHeight = this.board.matrix.height
-        return this.FSTL(new vector2(drawnMatrixWidth,drawnMatrixHeight));
+        const cumulativeGridWidth = (this.board.matrix.width - 1)
+        const cumulativeGridHeight = (this.board.matrix.height - 1)
+        return this.FSTL(new vector2(drawnMatrixWidth,drawnMatrixHeight))
+        .add(this.framewidth.mul(2))
+        .add(new vector2(cumulativeGridWidth,cumulativeGridHeight).hadamard(this.gridwidth));
     }
 
     matrixTopCoords(){
@@ -169,8 +182,10 @@ export default class MatrixRendering {
     }
 
     DrawTile(_tile:tile,screenpos:vector2,bypassboardoffset=false){
+        var _tileModel = _tile.tileModel;
+
         if(this.game.gameOver){
-            this.DrawSquare(new tileModel(palette.garbage),screenpos,true,bypassboardoffset);
+            this.DrawSquare(_tileModel.coloured(palette.one),screenpos,true,bypassboardoffset);
             return
         }
 
@@ -179,14 +194,12 @@ export default class MatrixRendering {
 
         var age = (Date.now() - _tile.birth)/1000 - 0.5;
 
-        var _tileModel = _tile.tileModel;
-
         if(this.game.userConfig.boardGreying && _tileModel.grey)
-            _tileModel = _tileModel.lerpq(palette.garbage,FDecay(age))
+            _tileModel = _tileModel.lerpq(palette.one,FDecay(age))
 
         if (_tile.wound){
             const woundedness = _tile.wound / this.game.gameConfig.woundsclearby;
-            _tileModel = new tileModel(palette.wound).lerp(palette.garbage,1 - woundedness);
+            _tileModel = new tileModel(palette.wound).lerp(palette.one,1 - woundedness);
         }
         
         if (age <= 0)
@@ -204,8 +217,10 @@ export default class MatrixRendering {
         const _drawnMatrix = this.drawnMatrix();
 
         this.ctx.globalAlpha = 1
-        this.ctx.fillStyle = palette.board.toHex();
+        this.ctx.fillStyle = palette.one.toHex();
         this.FillRect(_drawnMatrix.flip().div(2),_drawnMatrix)
+        this.ctx.fillStyle = palette.zro.toHex();
+        this.FillRect(_drawnMatrix.flip().div(2).add(this.framewidth),_drawnMatrix.sub(this.framewidth.mul(2)))
     }
 
     /*input screenpos is the center of the matrix*/
@@ -213,11 +228,9 @@ export default class MatrixRendering {
         const _drawnMatrix = this.drawnMatrix();
         
         const originX = - (_drawnMatrix.x - this.boardtilesize.x) / 2, originY = + (_drawnMatrix.y - this.boardtilesize.y) / 2
+        const origin = _drawnMatrix.sub(this.boardtilesize).flip().div(2)
         
-        return new vector2(
-            originX + this.FSTL(coords).x,
-            originY - this.FSTL(coords).y
-        )
+        return flipy(origin.add(this.FSTL(coords)).add(this.framewidth).add(coords.hadamard(this.gridwidth)))
     }
 
     DrawMatrix(){
@@ -235,15 +248,15 @@ export default class MatrixRendering {
         _tileModel = _tileModel || piece.tileModel;
         for (let i=0; i<piece.tiles.length; i++){
             const offset = piece.tiles[i];
-            this.DrawSquare(_tileModel,screenpos.add(flipy(this.FSTL(offset,tilesize))),zoom,bypassboardoffset,tilesize)
+            this.DrawSquare(_tileModel,screenpos.add(flipy(this.FSTL2(offset,tilesize))),zoom,bypassboardoffset,tilesize)
         }
 
         if(!showCOR||!this.game.gameConfig.allowRotation)return;
 
-        const offset = flipy(this.FSTL(CORoffsets[simplifyKickType(piece.kickType)].rotate(piece.orientiation),tilesize));
+        const offset = flipy(this.FSTL2(CORoffsets[simplifyKickType(piece.kickType)].rotate(piece.orientiation),tilesize));
         let CORpos = screenpos.add(offset)
         this.ctx.globalAlpha *= this.game.userConfig.COROpacity
-        this.ctx.fillStyle = palette.background.toHex();
+        this.ctx.fillStyle = palette.one.toHex();
         this.FillRect(CORpos.sub(this.CORsize.div(2)),this.CORsize,zoom,bypassboardoffset)
     }
 
@@ -324,7 +337,7 @@ export default class MatrixRendering {
         let lockTime = this.game.gameConfig.gravity
         if(this.game.gameConfig.useLockTime)
             lockTime = this.game.gameConfig.lockTime
-        pieceModel = pieceModel.lerp(palette.board,this.gameManager.movementManager.lockelapsed/lockTime * 0.8);
+        pieceModel = pieceModel.lerp(palette.zro,this.gameManager.movementManager.lockelapsed/lockTime * 0.8);
 
         let screenpos = this.CoordsToScreenPos(usepos)
         this.DrawPiece(this.board.activepiece,
@@ -332,6 +345,50 @@ export default class MatrixRendering {
             pieceModel,
             true,true,false
         );
+    }
+
+    DrawHazards(){
+        const nextpiece = this.gameManager.queue[0];
+        const nexthold = this.gameManager.hold[0];
+
+        /*if(nexthold){
+            this.DrawPiece(nextpiece.subtract(nexthold),
+                this.CoordsToScreenPos(this.board.piecespawnlocation),
+                tileModel.cross(palette.tri),
+                false,true,false
+            );
+
+            this.DrawPiece(nexthold.subtract(nextpiece),
+                this.CoordsToScreenPos(this.board.piecespawnlocation),
+                tileModel.cross(palette.two),
+                false,true,false
+            );
+
+            this.DrawPiece(nexthold.intersection(nextpiece),
+                this.CoordsToScreenPos(this.board.piecespawnlocation),
+                tileModel.cross(palette.one),
+                false,true,false
+            );
+        }else{
+            this.DrawPiece(nextpiece,
+                this.CoordsToScreenPos(this.board.piecespawnlocation),
+                tileModel.cross(palette.tri),
+                false,true,false
+            );
+        }*/
+        if(nexthold){
+            this.DrawPiece(nexthold,
+                this.CoordsToScreenPos(this.board.piecespawnlocation),
+                tileModel.dither3alt(palette.two),
+                false,true,false
+            );
+        }
+        this.DrawPiece(nextpiece,
+            this.CoordsToScreenPos(this.board.piecespawnlocation),
+            tileModel.dither2(palette.tri),
+            false,true,false
+        );
+        
     }
 
     visualHealth = 0;
@@ -400,7 +457,7 @@ export default class MatrixRendering {
 
                 if(lingerT >= 1)
                 {
-                    deletion.push(this.gameManager.garbageQueue.indexOf(packet))
+                    deletion.unshift(this.gameManager.garbageQueue.indexOf(packet))
                     continue
                 }
 
@@ -430,7 +487,7 @@ export default class MatrixRendering {
             lowerY += boxheight + this.garbagemargin
         }
         
-        for (let i = deletion.length - 1; i >= 0; i--) {
+        for (const i of deletion) {
             this.gameManager.garbageQueue.splice(i,1)
         }
     }
@@ -442,11 +499,12 @@ export default class MatrixRendering {
         this.DrawHealth();
         this.DrawGarbageQueue();
 
+        this.DrawHazards();
+        
         if(this.game.gameConfig.drawGhost)
             this.DrawGhost();
 
         this.DrawActivePiece();
-
     }
 
     cameraYoffset = 0;
@@ -469,7 +527,7 @@ export default class MatrixRendering {
         //sets the targets
         if(!this.game.gameOver){
             //keep piece on screen
-            switch(this.game.userConfig.cameraMode){
+            switch((this.game.gameConfig.pieceSpawnMargin > -1 ? this.game.userConfig.cameraMode : cameraMode.fixed)){
                 case cameraMode.focusActive:{
                     if(!this.board.activepiece) break
                     let trackpos = this.ActivePieceDrawnPosition();

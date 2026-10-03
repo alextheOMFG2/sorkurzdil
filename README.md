@@ -8,6 +8,8 @@ known bugs
 - if you dont reset the input manager sometimes theres no activepiece for some reason (and rotating throws an error) even though rotating is okay
 - every now and then for no reason some number becomes nan and it looked ugly so when that happens i made the game crash
 - i dont know how the weird garbage variants would interact with the systems i put in place for normal garbage, like counting of lines of garbage and dig and whatnot
+- why sometimes the renderer doesnt get a valid gamemanager object
+- sometimes lines hang around for one frame even though the line clear are is supposed to be zero
 
 halfway done
 - level select
@@ -17,7 +19,12 @@ halfway done
     - colour clear
 
 things to add
+- choose a font
+
 - hide the mouse when were playing the game
+
+- what if dithering
+    - making the game render in a pixel way could be cool but its also going to be very hard to write and potentially expensive to draw
 
 - input buffering and initial actions
     - because the previous one was bad

@@ -105,7 +105,10 @@ export class gameManager{
         this.pieceChoice.Seed(seed)
         this.board.activepiece = this.PopQueue();
 
+        this.waveelapsed = _gameConfig.waveinterval;
+
         this.gameDelay = _userConfig.gameStartDelay;
+
 
         this.movementManager = new MovementManager(this.game,this.board);
 
@@ -191,7 +194,7 @@ export class gameManager{
     PopQueue(){
         if(this.queue.length <= 0)
             this.UpdateQueue();
-        let piece = this.queue.splice(0,1)[0];
+        let piece = this.queue.shift();
         this.UpdateQueue();
         return piece;
     }
@@ -213,7 +216,7 @@ export class gameManager{
         this.hold.push(this.board.activepiece)
         
         if (this.hold.length > this.game.gameConfig.holdsize){
-            this.board.activepiece = this.hold.splice(0,1)[0];
+            this.board.activepiece = this.hold.shift();
         }
         else{
             this.board.activepiece = this.PopQueue();
@@ -423,7 +426,7 @@ export class gameManager{
                 toCancel -= packet.lines
                 packet.lines = 0;
 
-                deletion.push(i)
+                deletion.unshift(i)
             }else{
                 packet.lines -= toCancel;
                 packet.maxlines = packet.lines;
@@ -433,8 +436,8 @@ export class gameManager{
             }
         }
         
-        while(deletion.length > 0)
-            this.garbageQueue.splice(deletion.pop() as number,1);
+        for(const i of deletion)
+            this.garbageQueue.splice(i,1);
 
         return [toCancel, outgoing - toCancel]
     }
@@ -522,10 +525,6 @@ export class gameManager{
             this.game.pc++;
         }
 
-        this.CalculateScore(piecejustplaced,lines,lr.spin,lr.mini,lr.immobile);
-        const attack = this.CalculateAttack(piecejustplaced,lines,lr.spin,lr.mini,lr.immobile)
-        this.Backfire(attack)
-
         this.game.flags.lineclearalerts.push({ //tell renderer we linecleared so they can draw the thing
             time:Date.now(),
             piecejustplaced:piecejustplaced,
@@ -539,6 +538,10 @@ export class gameManager{
         const [oldcombo,oldb2b] = [this.game.combo,this.game.b2b] // a bunch of combo and b2b handling stuff
         const [combobreak,b2bbreak,magicianbreak,warlockbreak,healthdeath] = this.ComboAdjacent(piecejustplaced,lines,lr.spin,lr.mini,lr.immobile)
         this.ComboWhatever(combobreak,b2bbreak,magicianbreak,warlockbreak,healthdeath,oldb2b,oldcombo,lines);
+
+        this.CalculateScore(piecejustplaced,lines,lr.spin,lr.mini,lr.immobile); // score and attack obviously
+        const attack = this.CalculateAttack(piecejustplaced,lines,lr.spin,lr.mini,lr.immobile)
+        this.Backfire(attack)
 
         if(lines <= 0 || !this.game.gameConfig.comboBlocking) // garbage related stuff
             this.GarbageEnter()
@@ -567,13 +570,14 @@ export class gameManager{
     currentpacket:garbagePacket|undefined;
     iscut = false;
     garbageelapsed:number=0;
+    garbageswitch=false;
 
     SpawnGarbage(numberlines:number,dontreset=false){
         if(!dontreset)
             this.garbageGeneration.Reset();
+        this.garbageGeneration.Spawn(this.board,this.garbageswitch ? this.game.gameConfig.garbageType1 : this.game.gameConfig.garbageType2,numberlines)
         while(this.board.activepiece && !this.movementManager.ValidShift(vector2.zero))
             this.board.activeposition = this.board.activeposition.add(vector2.up)
-        this.garbageGeneration.Spawn(this.board,this.game.gameConfig.garbageType,numberlines)
     }
 
     StepGarbage(deltaTime:number){
@@ -583,10 +587,12 @@ export class gameManager{
                 return;
             }
             else{
-                this.currentpacket = this.garbagebuffer.splice(0,1)[0]
+                this.currentpacket = this.garbagebuffer.shift() as garbagePacket
                 this.currentpacket.ripen = this.game.gameConfig.garbageare
-                if(!this.iscut)
+                if(!this.iscut){
                     this.garbageGeneration.Reset()
+                    this.garbageswitch = !this.garbageswitch
+                }
             }
         }
         
@@ -611,9 +617,10 @@ export class gameManager{
 
                     if(!this.currentpacket.cut){
                         this.garbageGeneration.Reset()
+                        this.garbageswitch = !this.garbageswitch
                         this.garbageelapsed -= this.game.gameConfig.garbagepacketare;
                     }
-                    this.currentpacket = this.garbagebuffer.splice(0,1)[0]
+                    this.currentpacket = this.garbagebuffer.shift() as garbagePacket
                     this.currentpacket.ripen = this.garbageelapsed
                 }
             }
@@ -657,7 +664,7 @@ export class gameManager{
         var useare = this.game.gameConfig.are;
         if(this.lineclearare)
             useare = this.game.gameConfig.lineclearare;
-        if(this.areelapsed > useare){
+        if(this.areelapsed >= useare){
             this.ClearLineAndShiftActive();
 
             if(this.game.gameConfig.piecewaitsforgarbage && (this.garbagebuffer.length > 0 || this.currentpacket)) return
@@ -759,7 +766,10 @@ export class gameManager{
     }
 
     Update(deltaTime:number){
-        if(this.game.gameOver) return;
+        if(this.game.gameOver){
+            this.board.yoffset = 0
+            return
+        } 
         
         this.EvaluateCheese();
 
@@ -822,7 +832,7 @@ export class gameManager{
         this.fps.push(Math.floor(1000/deltaTime))
 
         if(this.fps.length > 600)
-            this.fps.splice(0,1)
+            this.fps.shift()
 
         var totalfps = 0
         var worstfps = 1/0

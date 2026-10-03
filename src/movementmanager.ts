@@ -397,7 +397,7 @@ export default class MovementManager{
                 code:"generic",
                 info:{
                     text:"clutch",
-                    colour:colour3.fromHex("#4b4b00")
+                    colour:colour3.fromHex("#ff00ff")
                 },
             })
         this.clutcheligible = false

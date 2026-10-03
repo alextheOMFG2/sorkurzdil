@@ -7,6 +7,7 @@ export class vector2{
     this.y = y;
   }
 
+  //basic operations
   add(other:vector2){
     return new vector2(this.x + other.x, this.y + other.y);
   }
@@ -19,6 +20,15 @@ export class vector2{
     return new vector2(this.x * other, this.y * other);
   }
 
+  eqeqeq(other:vector2){
+    return (other.x == this.x) && (other.y == this.y)
+  }
+
+  toString(){
+    return "( " + this.x + ", " + this.y + ")"
+  }
+
+  //vector operations
   hadamard(other:vector2){
     return new vector2(this.x * other.x, this.y * other.y);
   }
@@ -94,23 +104,9 @@ export class vector2{
     return new vector2(this.x * Math.cos(angle) - this.y * Math.sin(angle),this.x * Math.sin(angle) + this.y * Math.cos(angle));
   }
 
-  toString(){
-    return "( " + this.x + ", " + this.y + ")"
-  }
-
-  static up = new vector2(0,1);
-  static down = new vector2(0,-1);
-  static left = new vector2(-1,0);
-  static right = new vector2(1,0);
-  static zero = new vector2(0,0);
-  static one = new vector2(1,1);
-
   static fromAngle(angle:number){
     return new vector2(Math.cos(angle),Math.sin(angle));
   }
-
-  static orthogonal = [vector2.left,vector2.up,vector2.right,vector2.down]
-  static king = [vector2.left,vector2.up,vector2.right,vector2.down,new vector2(1,1),new vector2(1,-1),new vector2(-1,1),new vector2(-1,-1)]
 
   lerp(other:vector2,t:number){
     return new vector2(
@@ -118,6 +114,17 @@ export class vector2{
       lerp(this.y,other.y,t),
     )
   }
+
+  //convenience
+  static up = new vector2(0,1);
+  static down = new vector2(0,-1);
+  static left = new vector2(-1,0);
+  static right = new vector2(1,0);
+  static zero = new vector2(0,0);
+  static one = new vector2(1,1);
+
+  static orthogonal = [vector2.left,vector2.up,vector2.right,vector2.down]
+  static king = [vector2.left,vector2.up,vector2.right,vector2.down,new vector2(1,1),new vector2(1,-1),new vector2(-1,1),new vector2(-1,-1)]
 }
 
 const hexadecimalAlphabet = "0123456789abcdef"

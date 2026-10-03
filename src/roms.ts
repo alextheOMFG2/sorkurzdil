@@ -1,6 +1,7 @@
 import { clone, colour3, vector2 } from './basics.ts'
 import { kickType, simpleKickType, SpinType, symmetry } from './rotationsystems.ts';
 import { tileType } from './board.ts';
+import { images } from './imagemanager.ts';
 
 const lightmode = Object.freeze({
   garbage: colour3.fromHex("#adafb8"),
@@ -52,6 +53,33 @@ const lightmode = Object.freeze({
   none: new colour3(0,0,0,0),
 })
 
+const twobit = Object.freeze({
+  zro: colour3.fromHex("#000000"),
+  one: colour3.fromHex("#ffffff"),
+  two: colour3.fromHex("#ff0000"),
+  tri: colour3.fromHex("#ff00ff"),
+  
+  wound: colour3.fromHex("#ff00ff"),
+
+  attackunentered: colour3.fromHex("#ff0000"),
+  attackunripe: colour3.fromHex("#ffffff"),
+  attackdormant: colour3.fromHex("#ff00ff"),
+  attackused: colour3.fromHex("#ffffff"),
+  attack1: colour3.fromHex("#ffffff"),
+  attack2: colour3.fromHex("#ff00ff"),
+  
+  b2b: colour3.fromHex("#ffffff"),
+  b2b2b: colour3.fromHex("#ff0000"),
+
+  //board: colour3.fromHex("#0b0013"),
+  //black: colour3.fromHex("#0b0013"),
+  //background: colour3.fromHex("#f2f2f2"),
+  shine: colour3.fromHex("#ffffff"),
+  
+  great1: colour3.fromHex("#ffffff"),
+  great2: colour3.fromHex("#ff0000"),
+})
+
 const darkmode = Object.freeze({
   garbage: colour3.fromHex("#593c63"),
 
@@ -95,7 +123,7 @@ const darkmode = Object.freeze({
   none: new colour3(0,0,0,0),
 })
 
-export const palette = lightmode;
+export const palette = twobit;
 
 export type colourpossibility = ()=>colour3
 
@@ -184,25 +212,122 @@ export class tileModel{
     return robot
   }
 
-  static tripleRingTransparency(outer:colour3,middle?:colour3,inner?:colour3){
+  static tripleRingTransparency(outer?:colour3,middle?:colour3,inner?:colour3){
     let robot = new tileModel();
 
-    robot.rectangles.push(new filledRectangle(new vector2(0,0),new vector2(1,0.2),outer));
-    robot.rectangles.push(new filledRectangle(new vector2(0,0.8),new vector2(1,0.2),outer));
-    robot.rectangles.push(new filledRectangle(new vector2(0,0.2),new vector2(0.2,0.6),outer));
-    robot.rectangles.push(new filledRectangle(new vector2(0.8,0.2),new vector2(0.2,0.6),outer));
+    if(outer){
+      robot.rectangles.push(new filledRectangle(new vector2(0,0),new vector2(1,1/6),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(0,5/6),new vector2(1,1/6),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(0,1/6),new vector2(1/6,4/6),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(5/6,1/6),new vector2(1/6,4/6),outer));
+    }
     if(middle){
-      robot.rectangles.push(new filledRectangle(new vector2(0.2,0.2),new vector2(0.6,0.2),middle));
-      robot.rectangles.push(new filledRectangle(new vector2(0.2,0.6),new vector2(0.6,0.2),middle));
-      robot.rectangles.push(new filledRectangle(new vector2(0.2,0.4),new vector2(0.2,0.2),middle));
-      robot.rectangles.push(new filledRectangle(new vector2(0.6,0.4),new vector2(0.2,0.2),middle));
+      robot.rectangles.push(new filledRectangle(new vector2(1/6,1/6),new vector2(4/6,1/6),middle));
+      robot.rectangles.push(new filledRectangle(new vector2(1/6,4/6),new vector2(4/6,1/6),middle));
+      robot.rectangles.push(new filledRectangle(new vector2(1/6,2/6),new vector2(1/6,2/6),middle));
+      robot.rectangles.push(new filledRectangle(new vector2(4/6,2/6),new vector2(1/6,2/6),middle));
     }
     if(inner){
-      const iRect = new filledRectangle(vector2.one.mul(2/5),vector2.one.div(5),inner)
+      const iRect = new filledRectangle(new vector2(2/6,2/6),new vector2(2/6,2/6),inner)
       robot.rectangles.push(iRect);
     }
     robot.isNull = false
-    robot.firstcolour = outer;
+    robot.firstcolour = outer || middle || inner || new colour3(0,0,0,0);
+    return robot
+  }
+
+  static doubleringtransparency(outer?:colour3,inner?:colour3,ringwidth=0.25){
+    let robot = new tileModel();
+
+    if(outer){
+      robot.rectangles.push(new filledRectangle(new vector2(0,0),new vector2(1,ringwidth),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(0,1-ringwidth),new vector2(1,ringwidth),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(0,ringwidth),new vector2(ringwidth,1-2*ringwidth),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(1-ringwidth,ringwidth),new vector2(ringwidth,1-2*ringwidth),outer));
+    }
+    if(inner){
+      const iRect = new filledRectangle(vector2.one.mul(ringwidth),vector2.one.mul(1-2*ringwidth),inner)
+      robot.rectangles.push(iRect);
+    }
+    robot.isNull = false
+    robot.firstcolour = outer || inner || new colour3(0,0,0,0);
+    return robot
+  }
+
+  static blocks(outer?:colour3,inner?:colour3,shine?:colour3,shine2?:colour3,shine3?:colour3,ringwidth=1/6){
+    let robot = new tileModel();
+
+    if(outer){
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth,0),new vector2(1-ringwidth,ringwidth),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(0,1-ringwidth),new vector2(1,ringwidth),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(0,ringwidth),new vector2(ringwidth,1-2*ringwidth),outer));
+      robot.rectangles.push(new filledRectangle(new vector2(1-ringwidth,ringwidth),new vector2(ringwidth,1-2*ringwidth),outer));
+    }
+    if(inner){
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth*3,ringwidth),new vector2(1-4*ringwidth,ringwidth),inner));
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth*2,ringwidth*2),new vector2(1-3*ringwidth,ringwidth),inner));
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth,ringwidth*3),new vector2(1-2*ringwidth,1-4*ringwidth),inner));
+    }
+    if(shine){
+      robot.rectangles.push(new filledRectangle(new vector2(0,0),new vector2(ringwidth,ringwidth),shine));
+    }
+    if(shine2){
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth,ringwidth),new vector2(ringwidth,ringwidth),shine2));
+    }
+    if(shine3){
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth*2,ringwidth),new vector2(ringwidth,ringwidth),shine3));
+      robot.rectangles.push(new filledRectangle(new vector2(ringwidth,ringwidth*2),new vector2(ringwidth,ringwidth),shine3));
+    }
+    robot.isNull = false
+    robot.firstcolour = outer || inner || new colour3(0,0,0,0);
+    return robot
+  }
+
+  static cross(_colour:colour3){
+    let robot = new tileModel();
+
+    robot.drawpixel(_colour,new vector2(0,0))
+    robot.drawpixel(_colour,new vector2(1,1))
+    robot.drawpixel(_colour,new vector2(2,2))
+    robot.drawpixel(_colour,new vector2(3,3))
+    robot.drawpixel(_colour,new vector2(4,4))
+    robot.drawpixel(_colour,new vector2(5,5))
+    robot.drawpixel(_colour,new vector2(5,5))
+    robot.drawpixel(_colour,new vector2(5,0))
+    robot.drawpixel(_colour,new vector2(4,1))
+    robot.drawpixel(_colour,new vector2(0,5))
+    robot.drawpixel(_colour,new vector2(1,4))
+
+    robot.isNull = false
+    robot.firstcolour = _colour;
+    return robot
+  }
+
+  static dither3alt(_colour=new colour3(1,1,1)){
+    let robot = new tileModel();
+
+    for (let x = 0; x < 6; x++) 
+      for (let y = 0; y < 6; y++) {
+        if((x%2==0)&&(y%2!=0))
+          robot.drawpixel(_colour,new vector2(x,y))
+      }
+
+    robot.isNull = false
+    robot.firstcolour = _colour;
+    return robot
+  }
+
+  static dither2(_colour=new colour3(1,1,1)){
+    let robot = new tileModel();
+
+    for (let x = 0; x < 6; x++) 
+      for (let y = 0; y < 6; y++) {
+        if((x+y)%2==0)
+          robot.drawpixel(_colour,new vector2(x,y))
+      }
+
+    robot.isNull = false
+    robot.firstcolour = _colour;
     return robot
   }
 
@@ -225,6 +350,10 @@ export class tileModel{
     robot.images.push(new imageRectangle(vector2.zero,vector2.one,image));
     robot.isNull = false
     return robot
+  }
+
+  drawpixel(_colour:colour3,pixelcoords:vector2,pixelswidth=1/6,pixelsize=vector2.one){
+    this.rectangles.push(new filledRectangle(pixelcoords.mul(pixelswidth),pixelsize.mul(pixelswidth),_colour))
   }
 
   colourOperation(op:(zis:colour3,...a:any[]) => colour3,...opargs:any[]){
@@ -258,6 +387,15 @@ export class tileModel{
     return robot;
   }
 
+  coloured(_colour:colour3){
+    const robot = clone(this)
+    for(const rect of robot.rectangles){
+      rect.colour = _colour;
+      rect.colourpossibility = undefined;
+    }
+    return robot;
+  }
+
   doNotGrey(){
     const robot = clone(this)
     robot.grey = false
@@ -267,14 +405,16 @@ export class tileModel{
 
 export const tileModels = Object.freeze({
   "none":new tileModel(),
-  "garbage":new tileModel(palette.garbage),
-  "I":new tileModel(palette.I),
-  "L":new tileModel(palette.L),
-  "O":new tileModel(palette.O),
-  "Z":new tileModel(palette.Z),
-  "T":new tileModel(palette.T),
-  "J":new tileModel(palette.J),
-  "S":new tileModel(palette.S),
+  "garbage":tileModel.tripleRingTransparency(palette.one,palette.one),
+  "garbage1":new tileModel(palette.one),
+  "garbage2":tileModel.tripleRingTransparency(palette.one,undefined,palette.one),
+  "I":tileModel.blocks(palette.two,undefined,palette.one,undefined,undefined),
+  "L":tileModel.blocks(palette.tri,palette.one,palette.one,palette.one,palette.one),
+  "O":tileModel.tripleRingTransparency(palette.one,undefined,palette.one),
+  "Z":tileModel.blocks(palette.tri,palette.tri,palette.tri,palette.one,palette.one),
+  "T":tileModel.blocks(palette.tri,undefined,palette.one,undefined,undefined),
+  "J":tileModel.blocks(palette.two,palette.one,palette.one,palette.one,palette.one),
+  "S":tileModel.blocks(palette.two,palette.two,palette.two,palette.one,palette.one),
   "V":new tileModel(),
   "U":new tileModel(),
   "W":new tileModel(),
@@ -333,6 +473,51 @@ export class piece{
     this.spinType = spinType || SpinType.immobilespin;
   }
 
+  //misc
+  booleanoperation(other:piece,OT=false,nOT=false,OnT=false){
+    const robot = clone(this)
+    robot.tiles = []
+    
+    for(const i of this.tiles){
+      let otherincludes = false;
+      for(const j of other.tiles)
+        if(i.eqeqeq(j)){
+          otherincludes = true
+          break
+        }
+
+      if((OT && otherincludes) || (nOT && !otherincludes))
+        robot.tiles.push(clone(i))
+    }
+
+    if(OnT)
+      for(const i of other.tiles){
+        let thisincludes = false;
+        for(const j of this.tiles)
+          if(i.eqeqeq(j)){
+            thisincludes = true
+            break
+          }
+
+        if(!thisincludes)
+          robot.tiles.push(clone(i))
+      }
+
+    return robot
+  }
+  intersection(other:piece){
+    return this.booleanoperation(other,true,false,false)
+  }
+
+  subtract(other:piece){
+    return this.booleanoperation(other,false,true,false)
+  }
+
+  union(other:piece){
+    return this.booleanoperation(other,true,true,true)
+  }
+
+  //movements stuff
   Rotate(rotation:number){
     for(let i=0; i<this.tiles.length; i++){
       this.tiles[i] = this.tiles[i].rotate(rotation)
@@ -383,6 +568,7 @@ export class piece{
     this.Hadamard(other);
   }
 
+  //things to use when hardcoding pieces
   withModel(_tileModel:tileModel){
     let robot = clone(this);
     robot.tileModel = _tileModel;
@@ -515,7 +701,7 @@ export const pieces = Object.freeze({
     new vector2(1,1),
     new vector2(0,1),
   ],
-  tileModel.tripleRing(palette.S,undefined,palette.background),
+  tileModel.tripleRing(palette.one,undefined,palette.two),
   kickType.T,
   "s",
   SpinType.S),
@@ -526,7 +712,7 @@ export const pieces = Object.freeze({
     new vector2(1,0),
     new vector2(1,1),
   ],
-  tileModel.tripleRing(palette.J,undefined,palette.background),
+  tileModel.tripleRing(palette.two,undefined,palette.one),
   kickType.T,
   "l",
   SpinType.T),
@@ -576,7 +762,7 @@ export const pieces = Object.freeze({
     new vector2(1,0),
     new vector2(0,1),
   ],
-  tileModel.tripleRing(palette.violent,palette.board),
+  tileModel.tripleRing(palette.one,palette.zro),
   kickType.T,
   "<",
   SpinType.immobilespin),
@@ -586,7 +772,7 @@ export const pieces = Object.freeze({
     new vector2(0,0),
     new vector2(1,0),
   ],
-  tileModel.tripleRing(palette.blue,palette.board),
+  tileModel.tripleRing(palette.two,palette.zro),
   kickType.T,
   "_",
   SpinType.immobilespin),
@@ -595,7 +781,7 @@ export const pieces = Object.freeze({
     new vector2(0,0),
     new vector2(1,0),
   ],
-  tileModel.tripleRing(palette.greenish,palette.board),
+  tileModel.tripleRing(palette.tri,palette.zro),
   kickType.T,
   "-",
   SpinType.immobilespin),
@@ -603,7 +789,7 @@ export const pieces = Object.freeze({
   new piece([
     new vector2(0,0),
   ],
-  tileModel.tripleRing(palette.chartreuse,palette.board),
+  tileModel.tripleRing(palette.zro,palette.one),
   kickType.T,
   ".",
   SpinType.immobilespin),
@@ -645,7 +831,7 @@ export const bagprefabs = Object.freeze({
     pieces.L.withModel(new tileModel(()=>{
       return colour3.fromHex("#f2834b",(Math.sin(Date.now() / 5000)/2 + 0.5)**8);
     })),
-    pieces.O.withModel(tileModel.sprite(krux)),
+    pieces.O.withModel(tileModel.sprite(images.krux)),
     pieces.Z.withModel(new tileModel(()=>{
       return colour3.fromHSV(Math.sin(Math.floor(Date.now()/200)),1,1);
     })),
@@ -694,15 +880,15 @@ export const bagprefabs = Object.freeze({
     pieces['.'],
   ],
   fixedM123: [
-    pieces['<'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 0/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['<'].rotated(1).withModel(tileModel.tripleRing(colour3.fromHSV( 1/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['<'].rotated(2).withModel(tileModel.tripleRing(colour3.fromHSV( 2/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['<'].rotated(3).withModel(tileModel.tripleRing(colour3.fromHSV( 3/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['_'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 4/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['_'].rotated(1).withModel(tileModel.tripleRing(colour3.fromHSV( 5/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['-'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 6/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['-'].rotated(1).withModel(tileModel.tripleRing(colour3.fromHSV( 7/9,0.6901,0.9490),palette.background)).withRotationCleared(),
-    pieces['.'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 8/9,0.6901,0.9490),palette.background)).withRotationCleared(),
+    pieces['<'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 0/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['<'].rotated(1).withModel(tileModel.tripleRing(colour3.fromHSV( 1/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['<'].rotated(2).withModel(tileModel.tripleRing(colour3.fromHSV( 2/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['<'].rotated(3).withModel(tileModel.tripleRing(colour3.fromHSV( 3/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['_'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 4/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['_'].rotated(1).withModel(tileModel.tripleRing(colour3.fromHSV( 5/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['-'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 6/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['-'].rotated(1).withModel(tileModel.tripleRing(colour3.fromHSV( 7/9,0.6901,0.9490),palette.one)).withRotationCleared(),
+    pieces['.'].rotated(0).withModel(tileModel.tripleRing(colour3.fromHSV( 8/9,0.6901,0.9490),palette.one)).withRotationCleared(),
   ],
 });
 

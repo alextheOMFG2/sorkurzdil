@@ -47,14 +47,16 @@ function ExplodeTile(_gimmickReport:gimmickReport,_board:board,_game:game,coords
 
 function DetonateBombs(_gimmickReport:gimmickReport,_board:board,_game:game,ignition:vector2[]){
     while(ignition.length > 0){
-        const i = ignition.pop()
-        if(!i)break;
-        const _eligibletile = _board.matrix.GetTile(i.add(vector2.down))
+        const ig = ignition.pop()
+        if(!ig)break;
+        const i = ig.add(vector2.down)
+        const _eligibletile = _board.matrix.GetTile(i)
         if(!_eligibletile)continue;
         if(_eligibletile.tileType !== tileType.bomb)continue;
-        ClearLine(_board,i.y - 1)
-        ignition.unshift(i.add(vector2.down))
-        _gimmickReport.lines++;
+        const _tile = tile.hardy()
+        _tile.born()
+        _board.matrix.SetTile(i,_tile)
+        ignition.unshift(i)
         _game.flags.shakeincrease += 0.2;
     }
 }

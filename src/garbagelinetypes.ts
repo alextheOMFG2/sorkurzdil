@@ -106,6 +106,23 @@ export class StraightGarbage extends HolesGarbageLineGenerator{
     }
 }
 
+export class NwideGarbage extends StraightGarbage{
+    holecount:number;
+
+    constructor(holecount=2){
+        super()
+        this.holecount = holecount
+    }
+
+    HoleChoice(width: number): number[] {
+        this.hole = this.hole||Math.floor(this.randomiser.next()*(width-(this.holecount-1)))
+        const holeschosen:number[] = []
+        for(let i=0;i<this.holecount;i++)
+            holeschosen.push(i+this.hole)
+        return holeschosen
+    }
+}
+
 export class CheckerGarbage extends SwitchGarbageLineGenerator{
     parity:number=0
 
@@ -212,6 +229,23 @@ export class Bombs extends StraightGarbage{
         _tile.countstoclear = false;
         _tile.tileType = tileType.bomb;
         return _tile
+    }
+    
+    GarbageType(_garbageType: garbageType): tile {
+        return tile.hardy()
+    }
+}
+
+export class NwideBombs extends NwideGarbage{
+    HoleType(_garbageType: garbageType): tile {
+        const _tile = new tile(tileModels.bomb);
+        _tile.countstoclear = false;
+        _tile.tileType = tileType.bomb;
+        return _tile
+    }
+    
+    GarbageType(_garbageType: garbageType): tile {
+        return tile.hardy()
     }
 }
 

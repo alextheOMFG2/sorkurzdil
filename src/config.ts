@@ -408,7 +408,8 @@ export class gameConfig{
     garbageChoice:BaseGarbageGenerator|undefined;
     woundsChoice:LinesGenerator|undefined;
     cheeseChoice:LinesGenerator|undefined;
-    garbageType:garbageType=tile.garbage;
+    garbageType1:garbageType=tile.garbage;
+    garbageType2:garbageType=tile.garbage1;
     woundsType:garbageType=tile.garbage;
     cheeseType:garbageType=tile.garbage;
 
@@ -429,8 +430,8 @@ export class gameConfig{
     piecewaitsforgarbage = false;
 
     //functions to pass the board through before and after locks
-    prelock:gimmick[] = [MarkBombClears];
-    postlock:gimmick[] = [ExplodeGrenades];
+    prelock:gimmick[] = [];
+    postlock:gimmick[] = [];
     postclear:gimmick[] = []; //only fires when theres a clear //unimplemented
     //would preclear make sense i guess it only fires when theer sa clear as wel
 

@@ -7,6 +7,7 @@ import { constraints, missions, scorers } from "./config.ts";
 import { LinesGenerator } from "./garbagegeneration.ts";
 import { Bombs, Damnation } from "./garbagelinetypes.ts";
 import { BasePieceGenerator, RandomPieceGenerator } from "./piecechoice.ts";
+import { MarkBombClears } from "./gimmicks.ts";
 
 export default class configprefabs{
     static get master(){
@@ -209,7 +210,22 @@ export default class configprefabs{
         let _gameConfig = new gameConfig()
 
         _gameConfig.garbageChoice = new LinesGenerator(new Bombs());
-        _gameConfig.garbageType = tile.hardy
+        _gameConfig.prelock.push(MarkBombClears)
+        //_gameConfig.garbageType = tile.hardy
+        
+        return _gameConfig
+    }
+
+    static get damnation(){
+        let _gameConfig = new gameConfig()
+        
+        _gameConfig.backfire = 0.5
+        _gameConfig.garbageChoice = new LinesGenerator(new Damnation())
+        _gameConfig.cheeseChoice = new LinesGenerator(new Damnation())
+        _gameConfig.cheeselayer = 4
+        _gameConfig.garbageare = 100
+        _gameConfig.garbagecap = 0
+        _gameConfig.piecewaitsforgarbage = true
         
         return _gameConfig
     }

@@ -12,7 +12,7 @@ import TextDisplay from './debugu.tsx'
 import { tile } from './board.ts';
 import { LinesGenerator, SpecklesGarbage } from './garbagegeneration.ts';
 import { AdhereToGlue } from './gimmicks.ts';
-import { Damnation, OneBlockGarbage, StraightGarbage } from './garbagelinetypes.ts';
+import { Damnation, NwideGarbage, OneBlockGarbage, StraightGarbage } from './garbagelinetypes.ts';
 
 const FPS = 120;
 
@@ -22,17 +22,22 @@ let _userConfig = new userConfig()
 _gameConfig.kickSystem = kickSystems.techmino;
 _gameConfig.debug = true;
 
-_gameConfig.backfire = 0.5
-_gameConfig.garbageChoice = new LinesGenerator(new Damnation())
-_gameConfig.cheeseChoice = new LinesGenerator(new Damnation())
-_gameConfig.cheeselayer = 4
-_gameConfig.garbageare = 100
-_gameConfig.garbagecap = 0
-_gameConfig.piecewaitsforgarbage = true
+//_gameConfig.pieceSpawnMargin = 8
+
 //_gameConfig.garbageType = tile.glue
 //_gameConfig.earlylock = [AdhereToGlue]
 
-_gameConfig.mission = missions.attack(100)
+//_gameConfig.Splice(configs.bombs)
+_gameConfig.garbageChoice = new LinesGenerator(new NwideGarbage(2))
+_gameConfig.wave = [
+  new garbagePacket(1),
+  new garbagePacket(1),
+  new garbagePacket(2),
+  new garbagePacket(4),
+]
+_gameConfig.waveinterval = 4000
+_gameConfig.garbageripen = 8000
+_gameConfig.wavetype = wavetype.ontimer
 
 //_gameConfig.pieceChoice = pieceChoices.bags(bagprefabs.tetrominosPlusGrenade)
 
@@ -115,11 +120,11 @@ function Update(canvas:HTMLCanvasElement,timestamp,deltaTime){
     return;
   ctx.reset()
 
-  ctx.fillStyle = palette.black.toHex();
+  ctx.fillStyle = palette.one.toHex();
   ctx.textAlign = "start"; 
-  ctx.font = "italic 128px Arial";
-  ctx.letterSpacing = Math.sin((timestamp - starttime)/3000)**4 * 512 + "px"
-  ctx.fillText("四方形",canvas.width/2-1600,canvas.height/2-600);
+  ctx.font = "italic 128px Bytesized";
+  ctx.letterSpacing = Math.sin((timestamp - starttime)/3000)**4 * 128 + "px"
+  ctx.fillText("Sulfir |",canvas.width/2-1600,canvas.height/2-600);
 }
 
 function App() {
@@ -168,7 +173,6 @@ function App() {
         singleplayergame.Update(deltaTime)
       }
 
-      document.body.style.backgroundColor = palette.background.toHex()
       setTimeout(everyFrame,1000/FPS)
     }
 
